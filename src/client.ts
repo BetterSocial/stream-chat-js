@@ -1777,6 +1777,8 @@ export class StreamChat<
       ...options,
     };
 
+    // @ts-ignore
+    console.tron.log('whatsapp');
     const data = await this.post<{
       channels: ChannelAPIResponse<
         AttachmentType,
@@ -1788,6 +1790,8 @@ export class StreamChat<
       >[];
     }>(this.baseURL + '/channels', payload);
 
+    // @ts-ignore
+    console.tron.log('response :', data);
     const channels: Channel<
       AttachmentType,
       ChannelType,
