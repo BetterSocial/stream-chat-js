@@ -4,6 +4,7 @@
 import axios, { AxiosRequestConfig, AxiosInstance, AxiosResponse } from 'axios';
 import https from 'https';
 import WebSocket from 'isomorphic-ws';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { Channel } from './channel';
 import { ClientState } from './client_state';
@@ -1777,6 +1778,8 @@ export class StreamChat<
       ...options,
     };
 
+    // @ts-ignore
+    console.tron.log('whatsapp');
     const data = await this.post<{
       channels: ChannelAPIResponse<
         AttachmentType,
@@ -1788,6 +1791,14 @@ export class StreamChat<
       >[];
     }>(this.baseURL + '/channels', payload);
 
+    try {
+      AsyncStorage.setItem('@FIRST_CHANNEL', JSON.stringify(data));
+    } catch (e) {
+      // @ts-ignore
+      console.tron.log('testing tidak jalan ', e);
+    }
+    // @ts-ignore
+    console.tron.log('response :', data);
     const channels: Channel<
       AttachmentType,
       ChannelType,
