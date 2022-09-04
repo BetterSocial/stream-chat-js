@@ -1569,6 +1569,7 @@ export class StreamChat<
         { cid: { $in: cids } } as ChannelFilters<ChannelType, CommandType, UserType>,
         { last_message_at: -1 },
         { limit: 30 },
+        true,
       );
 
       this.logger('info', 'client:recoverState() - Querying channels finished', {
@@ -1739,12 +1740,58 @@ export class StreamChat<
   }
 
   /**
+   * getLocalChannelData - Get channel data from local Storage
+   *
+   * @param {ChannelStateOptions} [stateOptions] State options object. These options will only be used for state management and won't be sent in the request.
+   * - stateOptions.skipInitialization - Skips the initialization of the state for the channels matching the ids in the list.
+   *
+   * @return {Promise<APIResponse & { channels: Array<ChannelAPIResponse<AttachmentType,ChannelType,CommandType,MessageType,ReactionType,UserType>>}> } search channels response
+   */
+  async getLocalChannelData(stateOptions: ChannelStateOptions = {}) {
+    const { skipInitialization } = stateOptions;
+
+    const localStorageChannel = (await AsyncStorage.getItem('@FIRST_CHANNEL')) || '';
+    const data = JSON.parse(localStorageChannel);
+    const channels: Channel<
+      AttachmentType,
+      ChannelType,
+      CommandType,
+      EventType,
+      MessageType,
+      ReactionType,
+      UserType
+    >[] = [];
+
+    // update our cache of the configs
+    for (const channelState of data.channels) {
+      this._addChannelConfig(channelState);
+    }
+
+    for (const channelState of data.channels) {
+      const c = this.channel(channelState.channel.type, channelState.channel.id);
+      c.data = channelState.channel;
+      c.initialized = true;
+
+      if (skipInitialization === undefined) {
+        c._initializeState(channelState);
+      } else if (!skipInitialization.includes(channelState.channel.id)) {
+        c.state.clearMessages();
+        c._initializeState(channelState);
+      }
+
+      channels.push(c);
+    }
+    return channels;
+  }
+
+  /**
    * queryChannels - Query channels
    *
    * @param {ChannelFilters<ChannelType, CommandType, UserType>} filterConditions object MongoDB style filters
    * @param {ChannelSort<ChannelType>} [sort] Sort options, for instance {created_at: -1}.
    * When using multiple fields, make sure you use array of objects to guarantee field order, for instance [{last_updated: -1}, {created_at: 1}]
    * @param {ChannelOptions} [options] Options object
+   * @param {boolean} [firstStage] indicator to set data to local storage
    * @param {ChannelStateOptions} [stateOptions] State options object. These options will only be used for state management and won't be sent in the request.
    * - stateOptions.skipInitialization - Skips the initialization of the state for the channels matching the ids in the list.
    *
@@ -1754,6 +1801,7 @@ export class StreamChat<
     filterConditions: ChannelFilters<ChannelType, CommandType, UserType>,
     sort: ChannelSort<ChannelType> = [],
     options: ChannelOptions = {},
+    firstStage = true,
     stateOptions: ChannelStateOptions = {},
   ) {
     const { skipInitialization } = stateOptions;
@@ -1778,8 +1826,6 @@ export class StreamChat<
       ...options,
     };
 
-    // @ts-ignore
-    console.tron.log('whatsapp');
     const data = await this.post<{
       channels: ChannelAPIResponse<
         AttachmentType,
@@ -1791,14 +1837,10 @@ export class StreamChat<
       >[];
     }>(this.baseURL + '/channels', payload);
 
-    try {
-      AsyncStorage.setItem('@FIRST_CHANNEL', JSON.stringify(data));
-    } catch (e) {
-      // @ts-ignore
-      console.tron.log('testing tidak jalan ', e);
+    if (firstStage) {
+      await AsyncStorage.setItem('@FIRST_CHANNEL', JSON.stringify(data));
     }
-    // @ts-ignore
-    console.tron.log('response :', data);
+
     const channels: Channel<
       AttachmentType,
       ChannelType,

@@ -5274,7 +5274,7 @@ var StreamChat = /*#__PURE__*/function () {
                 last_message_at: -1
               }, {
                 limit: 30
-              });
+              }, true);
 
             case 6:
               _this.logger('info', 'client:recoverState() - Querying channels finished', {
@@ -6497,12 +6497,8 @@ var StreamChat = /*#__PURE__*/function () {
       return queryMessageFlags;
     }()
     /**
-     * queryChannels - Query channels
+     * getLocalChannelData - Get channel data from local Storage
      *
-     * @param {ChannelFilters<ChannelType, CommandType, UserType>} filterConditions object MongoDB style filters
-     * @param {ChannelSort<ChannelType>} [sort] Sort options, for instance {created_at: -1}.
-     * When using multiple fields, make sure you use array of objects to guarantee field order, for instance [{last_updated: -1}, {created_at: 1}]
-     * @param {ChannelOptions} [options] Options object
      * @param {ChannelStateOptions} [stateOptions] State options object. These options will only be used for state management and won't be sent in the request.
      * - stateOptions.skipInitialization - Skips the initialization of the state for the channels matching the ids in the list.
      *
@@ -6510,15 +6506,12 @@ var StreamChat = /*#__PURE__*/function () {
      */
 
   }, {
-    key: "queryChannels",
+    key: "getLocalChannelData",
     value: function () {
-      var _queryChannels = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee18(filterConditions) {
-        var sort,
-            options,
-            stateOptions,
+      var _getLocalChannelData = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee18() {
+        var stateOptions,
             skipInitialization,
-            defaultOptions,
-            payload,
+            localStorageChannel,
             data,
             channels,
             _iterator2,
@@ -6534,46 +6527,24 @@ var StreamChat = /*#__PURE__*/function () {
           while (1) {
             switch (_context18.prev = _context18.next) {
               case 0:
-                sort = _args18.length > 1 && _args18[1] !== undefined ? _args18[1] : [];
-                options = _args18.length > 2 && _args18[2] !== undefined ? _args18[2] : {};
-                stateOptions = _args18.length > 3 && _args18[3] !== undefined ? _args18[3] : {};
+                stateOptions = _args18.length > 0 && _args18[0] !== undefined ? _args18[0] : {};
                 skipInitialization = stateOptions.skipInitialization;
-                defaultOptions = {
-                  state: true,
-                  watch: true,
-                  presence: false
-                }; // Make sure we wait for the connect promise if there is a pending one
+                _context18.next = 4;
+                return AsyncStorage.getItem('@FIRST_CHANNEL');
 
-                _context18.next = 7;
-                return this.setUserPromise;
+              case 4:
+                _context18.t0 = _context18.sent;
+
+                if (_context18.t0) {
+                  _context18.next = 7;
+                  break;
+                }
+
+                _context18.t0 = '';
 
               case 7:
-                if (!this._hasConnectionID()) {
-                  defaultOptions.watch = false;
-                } // Return a list of channels
-
-
-                payload = _objectSpread(_objectSpread({
-                  filter_conditions: filterConditions,
-                  sort: normalizeQuerySort(sort)
-                }, defaultOptions), options); // @ts-ignore
-
-                console.tron.log('whatsapp');
-                _context18.next = 12;
-                return this.post(this.baseURL + '/channels', payload);
-
-              case 12:
-                data = _context18.sent;
-
-                try {
-                  AsyncStorage.setItem('@FIRST_CHANNEL', JSON.stringify(data));
-                } catch (e) {
-                  // @ts-ignore
-                  console.tron.log('testing tidak jalan ', e);
-                } // @ts-ignore
-
-
-                console.tron.log('response :', data);
+                localStorageChannel = _context18.t0;
+                data = JSON.parse(localStorageChannel);
                 channels = []; // update our cache of the configs
 
                 _iterator2 = _createForOfIteratorHelper(data.channels);
@@ -6617,12 +6588,148 @@ var StreamChat = /*#__PURE__*/function () {
 
                 return _context18.abrupt("return", channels);
 
-              case 21:
+              case 15:
               case "end":
                 return _context18.stop();
             }
           }
         }, _callee18, this);
+      }));
+
+      function getLocalChannelData() {
+        return _getLocalChannelData.apply(this, arguments);
+      }
+
+      return getLocalChannelData;
+    }()
+    /**
+     * queryChannels - Query channels
+     *
+     * @param {ChannelFilters<ChannelType, CommandType, UserType>} filterConditions object MongoDB style filters
+     * @param {ChannelSort<ChannelType>} [sort] Sort options, for instance {created_at: -1}.
+     * When using multiple fields, make sure you use array of objects to guarantee field order, for instance [{last_updated: -1}, {created_at: 1}]
+     * @param {ChannelOptions} [options] Options object
+     * @param {boolean} [firstStage] indicator to set data to local storage
+     * @param {ChannelStateOptions} [stateOptions] State options object. These options will only be used for state management and won't be sent in the request.
+     * - stateOptions.skipInitialization - Skips the initialization of the state for the channels matching the ids in the list.
+     *
+     * @return {Promise<APIResponse & { channels: Array<ChannelAPIResponse<AttachmentType,ChannelType,CommandType,MessageType,ReactionType,UserType>>}> } search channels response
+     */
+
+  }, {
+    key: "queryChannels",
+    value: function () {
+      var _queryChannels = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee19(filterConditions) {
+        var sort,
+            options,
+            firstStage,
+            stateOptions,
+            skipInitialization,
+            defaultOptions,
+            payload,
+            data,
+            channels,
+            _iterator4,
+            _step4,
+            channelState,
+            _iterator5,
+            _step5,
+            _channelState2,
+            c,
+            _args19 = arguments;
+
+        return _regeneratorRuntime.wrap(function _callee19$(_context19) {
+          while (1) {
+            switch (_context19.prev = _context19.next) {
+              case 0:
+                sort = _args19.length > 1 && _args19[1] !== undefined ? _args19[1] : [];
+                options = _args19.length > 2 && _args19[2] !== undefined ? _args19[2] : {};
+                firstStage = _args19.length > 3 && _args19[3] !== undefined ? _args19[3] : true;
+                stateOptions = _args19.length > 4 && _args19[4] !== undefined ? _args19[4] : {};
+                skipInitialization = stateOptions.skipInitialization;
+                defaultOptions = {
+                  state: true,
+                  watch: true,
+                  presence: false
+                }; // Make sure we wait for the connect promise if there is a pending one
+
+                _context19.next = 8;
+                return this.setUserPromise;
+
+              case 8:
+                if (!this._hasConnectionID()) {
+                  defaultOptions.watch = false;
+                } // Return a list of channels
+
+
+                payload = _objectSpread(_objectSpread({
+                  filter_conditions: filterConditions,
+                  sort: normalizeQuerySort(sort)
+                }, defaultOptions), options);
+                _context19.next = 12;
+                return this.post(this.baseURL + '/channels', payload);
+
+              case 12:
+                data = _context19.sent;
+
+                if (!firstStage) {
+                  _context19.next = 16;
+                  break;
+                }
+
+                _context19.next = 16;
+                return AsyncStorage.setItem('@FIRST_CHANNEL', JSON.stringify(data));
+
+              case 16:
+                channels = []; // update our cache of the configs
+
+                _iterator4 = _createForOfIteratorHelper(data.channels);
+
+                try {
+                  for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
+                    channelState = _step4.value;
+
+                    this._addChannelConfig(channelState);
+                  }
+                } catch (err) {
+                  _iterator4.e(err);
+                } finally {
+                  _iterator4.f();
+                }
+
+                _iterator5 = _createForOfIteratorHelper(data.channels);
+
+                try {
+                  for (_iterator5.s(); !(_step5 = _iterator5.n()).done;) {
+                    _channelState2 = _step5.value;
+                    c = this.channel(_channelState2.channel.type, _channelState2.channel.id);
+                    c.data = _channelState2.channel;
+                    c.initialized = true;
+
+                    if (skipInitialization === undefined) {
+                      c._initializeState(_channelState2);
+                    } else if (!skipInitialization.includes(_channelState2.channel.id)) {
+                      c.state.clearMessages();
+
+                      c._initializeState(_channelState2);
+                    }
+
+                    channels.push(c);
+                  }
+                } catch (err) {
+                  _iterator5.e(err);
+                } finally {
+                  _iterator5.f();
+                }
+
+                return _context19.abrupt("return", channels);
+
+              case 22:
+              case "end":
+                return _context19.stop();
+            }
+          }
+        }, _callee19, this);
       }));
 
       function queryChannels(_x16) {
@@ -6644,18 +6751,18 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "search",
     value: function () {
-      var _search = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee19(filterConditions, query) {
+      var _search = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee20(filterConditions, query) {
         var options,
             payload,
-            _args19 = arguments;
-        return _regeneratorRuntime.wrap(function _callee19$(_context19) {
+            _args20 = arguments;
+        return _regeneratorRuntime.wrap(function _callee20$(_context20) {
           while (1) {
-            switch (_context19.prev = _context19.next) {
+            switch (_context20.prev = _context20.next) {
               case 0:
-                options = _args19.length > 2 && _args19[2] !== undefined ? _args19[2] : {};
+                options = _args20.length > 2 && _args20[2] !== undefined ? _args20[2] : {};
 
                 if (!(options.offset && (options.sort || options.next))) {
-                  _context19.next = 3;
+                  _context20.next = 3;
                   break;
                 }
 
@@ -6669,46 +6776,46 @@ var StreamChat = /*#__PURE__*/function () {
                 });
 
                 if (!(typeof query === 'string')) {
-                  _context19.next = 8;
+                  _context20.next = 8;
                   break;
                 }
 
                 payload.query = query;
-                _context19.next = 13;
+                _context20.next = 13;
                 break;
 
               case 8:
                 if (!(_typeof(query) === 'object')) {
-                  _context19.next = 12;
+                  _context20.next = 12;
                   break;
                 }
 
                 payload.message_filter_conditions = query;
-                _context19.next = 13;
+                _context20.next = 13;
                 break;
 
               case 12:
                 throw Error("Invalid type ".concat(_typeof(query), " for query parameter"));
 
               case 13:
-                _context19.next = 15;
+                _context20.next = 15;
                 return this.setUserPromise;
 
               case 15:
-                _context19.next = 17;
+                _context20.next = 17;
                 return this.get(this.baseURL + '/search', {
                   payload: payload
                 });
 
               case 17:
-                return _context19.abrupt("return", _context19.sent);
+                return _context20.abrupt("return", _context20.sent);
 
               case 18:
               case "end":
-                return _context19.stop();
+                return _context20.stop();
             }
           }
-        }, _callee19, this);
+        }, _callee20, this);
       }));
 
       function search(_x17, _x18) {
@@ -6747,12 +6854,12 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "addDevice",
     value: function () {
-      var _addDevice = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee20(id, push_provider, userID) {
-        return _regeneratorRuntime.wrap(function _callee20$(_context20) {
+      var _addDevice = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee21(id, push_provider, userID) {
+        return _regeneratorRuntime.wrap(function _callee21$(_context21) {
           while (1) {
-            switch (_context20.prev = _context20.next) {
+            switch (_context21.prev = _context21.next) {
               case 0:
-                _context20.next = 2;
+                _context21.next = 2;
                 return this.post(this.baseURL + '/devices', _objectSpread({
                   id: id,
                   push_provider: push_provider
@@ -6761,14 +6868,14 @@ var StreamChat = /*#__PURE__*/function () {
                 } : {}));
 
               case 2:
-                return _context20.abrupt("return", _context20.sent);
+                return _context21.abrupt("return", _context21.sent);
 
               case 3:
               case "end":
-                return _context20.stop();
+                return _context21.stop();
             }
           }
-        }, _callee20, this);
+        }, _callee21, this);
       }));
 
       function addDevice(_x19, _x20, _x21) {
@@ -6788,25 +6895,25 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "getDevices",
     value: function () {
-      var _getDevices = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee21(userID) {
-        return _regeneratorRuntime.wrap(function _callee21$(_context21) {
+      var _getDevices = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee22(userID) {
+        return _regeneratorRuntime.wrap(function _callee22$(_context22) {
           while (1) {
-            switch (_context21.prev = _context21.next) {
+            switch (_context22.prev = _context22.next) {
               case 0:
-                _context21.next = 2;
+                _context22.next = 2;
                 return this.get(this.baseURL + '/devices', userID ? {
                   user_id: userID
                 } : {});
 
               case 2:
-                return _context21.abrupt("return", _context21.sent);
+                return _context22.abrupt("return", _context22.sent);
 
               case 3:
               case "end":
-                return _context21.stop();
+                return _context22.stop();
             }
           }
-        }, _callee21, this);
+        }, _callee22, this);
       }));
 
       function getDevices(_x22) {
@@ -6826,12 +6933,12 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "removeDevice",
     value: function () {
-      var _removeDevice = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee22(id, userID) {
-        return _regeneratorRuntime.wrap(function _callee22$(_context22) {
+      var _removeDevice = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee23(id, userID) {
+        return _regeneratorRuntime.wrap(function _callee23$(_context23) {
           while (1) {
-            switch (_context22.prev = _context22.next) {
+            switch (_context23.prev = _context23.next) {
               case 0:
-                _context22.next = 2;
+                _context23.next = 2;
                 return this.delete(this.baseURL + '/devices', _objectSpread({
                   id: id
                 }, userID ? {
@@ -6839,14 +6946,14 @@ var StreamChat = /*#__PURE__*/function () {
                 } : {}));
 
               case 2:
-                return _context22.abrupt("return", _context22.sent);
+                return _context23.abrupt("return", _context23.sent);
 
               case 3:
               case "end":
-                return _context22.stop();
+                return _context23.stop();
             }
           }
-        }, _callee22, this);
+        }, _callee23, this);
       }));
 
       function removeDevice(_x23, _x24) {
@@ -6866,15 +6973,15 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "getRateLimits",
     value: function () {
-      var _getRateLimits = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee23(params) {
+      var _getRateLimits = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee24(params) {
         var _ref6, serverSide, web, android, ios, endpoints;
 
-        return _regeneratorRuntime.wrap(function _callee23$(_context23) {
+        return _regeneratorRuntime.wrap(function _callee24$(_context24) {
           while (1) {
-            switch (_context23.prev = _context23.next) {
+            switch (_context24.prev = _context24.next) {
               case 0:
                 _ref6 = params || {}, serverSide = _ref6.serverSide, web = _ref6.web, android = _ref6.android, ios = _ref6.ios, endpoints = _ref6.endpoints;
-                return _context23.abrupt("return", this.get(this.baseURL + '/rate_limits', {
+                return _context24.abrupt("return", this.get(this.baseURL + '/rate_limits', {
                   server_side: serverSide,
                   web: web,
                   android: android,
@@ -6884,10 +6991,10 @@ var StreamChat = /*#__PURE__*/function () {
 
               case 2:
               case "end":
-                return _context23.stop();
+                return _context24.stop();
             }
           }
-        }, _callee23, this);
+        }, _callee24, this);
       }));
 
       function getRateLimits(_x25) {
@@ -6972,23 +7079,23 @@ var StreamChat = /*#__PURE__*/function () {
      * @return {Promise<APIResponse & { users: { [key: string]: UserResponse<UserType> } }>} list of updated users
      */
     function () {
-      var _partialUpdateUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee24(partialUserObject) {
-        return _regeneratorRuntime.wrap(function _callee24$(_context24) {
+      var _partialUpdateUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee25(partialUserObject) {
+        return _regeneratorRuntime.wrap(function _callee25$(_context25) {
           while (1) {
-            switch (_context24.prev = _context24.next) {
+            switch (_context25.prev = _context25.next) {
               case 0:
-                _context24.next = 2;
+                _context25.next = 2;
                 return this.partialUpdateUsers([partialUserObject]);
 
               case 2:
-                return _context24.abrupt("return", _context24.sent);
+                return _context25.abrupt("return", _context25.sent);
 
               case 3:
               case "end":
-                return _context24.stop();
+                return _context25.stop();
             }
           }
-        }, _callee24, this);
+        }, _callee25, this);
       }));
 
       function partialUpdateUser(_x26) {
@@ -7008,29 +7115,29 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "upsertUsers",
     value: function () {
-      var _upsertUsers = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee25(users) {
-        var userMap, _iterator4, _step4, userObject;
+      var _upsertUsers = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee26(users) {
+        var userMap, _iterator6, _step6, userObject;
 
-        return _regeneratorRuntime.wrap(function _callee25$(_context25) {
+        return _regeneratorRuntime.wrap(function _callee26$(_context26) {
           while (1) {
-            switch (_context25.prev = _context25.next) {
+            switch (_context26.prev = _context26.next) {
               case 0:
                 userMap = {};
-                _iterator4 = _createForOfIteratorHelper(users);
-                _context25.prev = 2;
+                _iterator6 = _createForOfIteratorHelper(users);
+                _context26.prev = 2;
 
-                _iterator4.s();
+                _iterator6.s();
 
               case 4:
-                if ((_step4 = _iterator4.n()).done) {
-                  _context25.next = 11;
+                if ((_step6 = _iterator6.n()).done) {
+                  _context26.next = 11;
                   break;
                 }
 
-                userObject = _step4.value;
+                userObject = _step6.value;
 
                 if (userObject.id) {
-                  _context25.next = 8;
+                  _context26.next = 8;
                   break;
                 }
 
@@ -7040,41 +7147,41 @@ var StreamChat = /*#__PURE__*/function () {
                 userMap[userObject.id] = userObject;
 
               case 9:
-                _context25.next = 4;
+                _context26.next = 4;
                 break;
 
               case 11:
-                _context25.next = 16;
+                _context26.next = 16;
                 break;
 
               case 13:
-                _context25.prev = 13;
-                _context25.t0 = _context25["catch"](2);
+                _context26.prev = 13;
+                _context26.t0 = _context26["catch"](2);
 
-                _iterator4.e(_context25.t0);
+                _iterator6.e(_context26.t0);
 
               case 16:
-                _context25.prev = 16;
+                _context26.prev = 16;
 
-                _iterator4.f();
+                _iterator6.f();
 
-                return _context25.finish(16);
+                return _context26.finish(16);
 
               case 19:
-                _context25.next = 21;
+                _context26.next = 21;
                 return this.post(this.baseURL + '/users', {
                   users: userMap
                 });
 
               case 21:
-                return _context25.abrupt("return", _context25.sent);
+                return _context26.abrupt("return", _context26.sent);
 
               case 22:
               case "end":
-                return _context25.stop();
+                return _context26.stop();
             }
           }
-        }, _callee25, this, [[2, 13, 16, 19]]);
+        }, _callee26, this, [[2, 13, 16, 19]]);
       }));
 
       function upsertUsers(_x27) {
@@ -7125,69 +7232,69 @@ var StreamChat = /*#__PURE__*/function () {
      * @return {Promise<APIResponse & { users: { [key: string]: UserResponse<UserType> } }>}
      */
     function () {
-      var _partialUpdateUsers = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee26(users) {
-        var _iterator5, _step5, userObject;
+      var _partialUpdateUsers = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee27(users) {
+        var _iterator7, _step7, userObject;
 
-        return _regeneratorRuntime.wrap(function _callee26$(_context26) {
+        return _regeneratorRuntime.wrap(function _callee27$(_context27) {
           while (1) {
-            switch (_context26.prev = _context26.next) {
+            switch (_context27.prev = _context27.next) {
               case 0:
-                _iterator5 = _createForOfIteratorHelper(users);
-                _context26.prev = 1;
+                _iterator7 = _createForOfIteratorHelper(users);
+                _context27.prev = 1;
 
-                _iterator5.s();
+                _iterator7.s();
 
               case 3:
-                if ((_step5 = _iterator5.n()).done) {
-                  _context26.next = 9;
+                if ((_step7 = _iterator7.n()).done) {
+                  _context27.next = 9;
                   break;
                 }
 
-                userObject = _step5.value;
+                userObject = _step7.value;
 
                 if (userObject.id) {
-                  _context26.next = 7;
+                  _context27.next = 7;
                   break;
                 }
 
                 throw Error('User ID is required when updating a user');
 
               case 7:
-                _context26.next = 3;
+                _context27.next = 3;
                 break;
 
               case 9:
-                _context26.next = 14;
+                _context27.next = 14;
                 break;
 
               case 11:
-                _context26.prev = 11;
-                _context26.t0 = _context26["catch"](1);
+                _context27.prev = 11;
+                _context27.t0 = _context27["catch"](1);
 
-                _iterator5.e(_context26.t0);
+                _iterator7.e(_context27.t0);
 
               case 14:
-                _context26.prev = 14;
+                _context27.prev = 14;
 
-                _iterator5.f();
+                _iterator7.f();
 
-                return _context26.finish(14);
+                return _context27.finish(14);
 
               case 17:
-                _context26.next = 19;
+                _context27.next = 19;
                 return this.patch(this.baseURL + '/users', {
                   users: users
                 });
 
               case 19:
-                return _context26.abrupt("return", _context26.sent);
+                return _context27.abrupt("return", _context27.sent);
 
               case 20:
               case "end":
-                return _context26.stop();
+                return _context27.stop();
             }
           }
-        }, _callee26, this, [[1, 11, 14, 17]]);
+        }, _callee27, this, [[1, 11, 14, 17]]);
       }));
 
       function partialUpdateUsers(_x28) {
@@ -7199,41 +7306,13 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "deleteUser",
     value: function () {
-      var _deleteUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee27(userID, params) {
-        return _regeneratorRuntime.wrap(function _callee27$(_context27) {
-          while (1) {
-            switch (_context27.prev = _context27.next) {
-              case 0:
-                _context27.next = 2;
-                return this.delete(this.baseURL + "/users/".concat(userID), params);
-
-              case 2:
-                return _context27.abrupt("return", _context27.sent);
-
-              case 3:
-              case "end":
-                return _context27.stop();
-            }
-          }
-        }, _callee27, this);
-      }));
-
-      function deleteUser(_x29, _x30) {
-        return _deleteUser.apply(this, arguments);
-      }
-
-      return deleteUser;
-    }()
-  }, {
-    key: "reactivateUser",
-    value: function () {
-      var _reactivateUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee28(userID, options) {
+      var _deleteUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee28(userID, params) {
         return _regeneratorRuntime.wrap(function _callee28$(_context28) {
           while (1) {
             switch (_context28.prev = _context28.next) {
               case 0:
                 _context28.next = 2;
-                return this.post(this.baseURL + "/users/".concat(userID, "/reactivate"), _objectSpread({}, options));
+                return this.delete(this.baseURL + "/users/".concat(userID), params);
 
               case 2:
                 return _context28.abrupt("return", _context28.sent);
@@ -7246,22 +7325,22 @@ var StreamChat = /*#__PURE__*/function () {
         }, _callee28, this);
       }));
 
-      function reactivateUser(_x31, _x32) {
-        return _reactivateUser.apply(this, arguments);
+      function deleteUser(_x29, _x30) {
+        return _deleteUser.apply(this, arguments);
       }
 
-      return reactivateUser;
+      return deleteUser;
     }()
   }, {
-    key: "deactivateUser",
+    key: "reactivateUser",
     value: function () {
-      var _deactivateUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee29(userID, options) {
+      var _reactivateUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee29(userID, options) {
         return _regeneratorRuntime.wrap(function _callee29$(_context29) {
           while (1) {
             switch (_context29.prev = _context29.next) {
               case 0:
                 _context29.next = 2;
-                return this.post(this.baseURL + "/users/".concat(userID, "/deactivate"), _objectSpread({}, options));
+                return this.post(this.baseURL + "/users/".concat(userID, "/reactivate"), _objectSpread({}, options));
 
               case 2:
                 return _context29.abrupt("return", _context29.sent);
@@ -7274,22 +7353,22 @@ var StreamChat = /*#__PURE__*/function () {
         }, _callee29, this);
       }));
 
-      function deactivateUser(_x33, _x34) {
-        return _deactivateUser.apply(this, arguments);
+      function reactivateUser(_x31, _x32) {
+        return _reactivateUser.apply(this, arguments);
       }
 
-      return deactivateUser;
+      return reactivateUser;
     }()
   }, {
-    key: "exportUser",
+    key: "deactivateUser",
     value: function () {
-      var _exportUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee30(userID, options) {
+      var _deactivateUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee30(userID, options) {
         return _regeneratorRuntime.wrap(function _callee30$(_context30) {
           while (1) {
             switch (_context30.prev = _context30.next) {
               case 0:
                 _context30.next = 2;
-                return this.get(this.baseURL + "/users/".concat(userID, "/export"), _objectSpread({}, options));
+                return this.post(this.baseURL + "/users/".concat(userID, "/deactivate"), _objectSpread({}, options));
 
               case 2:
                 return _context30.abrupt("return", _context30.sent);
@@ -7300,6 +7379,34 @@ var StreamChat = /*#__PURE__*/function () {
             }
           }
         }, _callee30, this);
+      }));
+
+      function deactivateUser(_x33, _x34) {
+        return _deactivateUser.apply(this, arguments);
+      }
+
+      return deactivateUser;
+    }()
+  }, {
+    key: "exportUser",
+    value: function () {
+      var _exportUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee31(userID, options) {
+        return _regeneratorRuntime.wrap(function _callee31$(_context31) {
+          while (1) {
+            switch (_context31.prev = _context31.next) {
+              case 0:
+                _context31.next = 2;
+                return this.get(this.baseURL + "/users/".concat(userID, "/export"), _objectSpread({}, options));
+
+              case 2:
+                return _context31.abrupt("return", _context31.sent);
+
+              case 3:
+              case "end":
+                return _context31.stop();
+            }
+          }
+        }, _callee31, this);
       }));
 
       function exportUser(_x35, _x36) {
@@ -7318,10 +7425,10 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "banUser",
     value: function () {
-      var _banUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee31(targetUserID, options) {
-        return _regeneratorRuntime.wrap(function _callee31$(_context31) {
+      var _banUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee32(targetUserID, options) {
+        return _regeneratorRuntime.wrap(function _callee32$(_context32) {
           while (1) {
-            switch (_context31.prev = _context31.next) {
+            switch (_context32.prev = _context32.next) {
               case 0:
                 if ((options === null || options === void 0 ? void 0 : options.user_id) !== undefined) {
                   options.banned_by_id = options.user_id;
@@ -7335,20 +7442,20 @@ var StreamChat = /*#__PURE__*/function () {
                   console.warn("banUser: 'user' is deprecated, please consider switching to 'banned_by'");
                 }
 
-                _context31.next = 4;
+                _context32.next = 4;
                 return this.post(this.baseURL + '/moderation/ban', _objectSpread({
                   target_user_id: targetUserID
                 }, options));
 
               case 4:
-                return _context31.abrupt("return", _context31.sent);
+                return _context32.abrupt("return", _context32.sent);
 
               case 5:
               case "end":
-                return _context31.stop();
+                return _context32.stop();
             }
           }
-        }, _callee31, this);
+        }, _callee32, this);
       }));
 
       function banUser(_x37, _x38) {
@@ -7367,25 +7474,25 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "unbanUser",
     value: function () {
-      var _unbanUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee32(targetUserID, options) {
-        return _regeneratorRuntime.wrap(function _callee32$(_context32) {
+      var _unbanUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee33(targetUserID, options) {
+        return _regeneratorRuntime.wrap(function _callee33$(_context33) {
           while (1) {
-            switch (_context32.prev = _context32.next) {
+            switch (_context33.prev = _context33.next) {
               case 0:
-                _context32.next = 2;
+                _context33.next = 2;
                 return this.delete(this.baseURL + '/moderation/ban', _objectSpread({
                   target_user_id: targetUserID
                 }, options));
 
               case 2:
-                return _context32.abrupt("return", _context32.sent);
+                return _context33.abrupt("return", _context33.sent);
 
               case 3:
               case "end":
-                return _context32.stop();
+                return _context33.stop();
             }
           }
-        }, _callee32, this);
+        }, _callee33, this);
       }));
 
       function unbanUser(_x39, _x40) {
@@ -7404,25 +7511,25 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "shadowBan",
     value: function () {
-      var _shadowBan = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee33(targetUserID, options) {
-        return _regeneratorRuntime.wrap(function _callee33$(_context33) {
+      var _shadowBan = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee34(targetUserID, options) {
+        return _regeneratorRuntime.wrap(function _callee34$(_context34) {
           while (1) {
-            switch (_context33.prev = _context33.next) {
+            switch (_context34.prev = _context34.next) {
               case 0:
-                _context33.next = 2;
+                _context34.next = 2;
                 return this.banUser(targetUserID, _objectSpread({
                   shadow: true
                 }, options));
 
               case 2:
-                return _context33.abrupt("return", _context33.sent);
+                return _context34.abrupt("return", _context34.sent);
 
               case 3:
               case "end":
-                return _context33.stop();
+                return _context34.stop();
             }
           }
-        }, _callee33, this);
+        }, _callee34, this);
       }));
 
       function shadowBan(_x41, _x42) {
@@ -7441,25 +7548,25 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "removeShadowBan",
     value: function () {
-      var _removeShadowBan = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee34(targetUserID, options) {
-        return _regeneratorRuntime.wrap(function _callee34$(_context34) {
+      var _removeShadowBan = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee35(targetUserID, options) {
+        return _regeneratorRuntime.wrap(function _callee35$(_context35) {
           while (1) {
-            switch (_context34.prev = _context34.next) {
+            switch (_context35.prev = _context35.next) {
               case 0:
-                _context34.next = 2;
+                _context35.next = 2;
                 return this.unbanUser(targetUserID, _objectSpread({
                   shadow: true
                 }, options));
 
               case 2:
-                return _context34.abrupt("return", _context34.sent);
+                return _context35.abrupt("return", _context35.sent);
 
               case 3:
               case "end":
-                return _context34.stop();
+                return _context35.stop();
             }
           }
-        }, _callee34, this);
+        }, _callee35, this);
       }));
 
       function removeShadowBan(_x43, _x44) {
@@ -7479,15 +7586,15 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "muteUser",
     value: function () {
-      var _muteUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee35(targetID, userID) {
+      var _muteUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee36(targetID, userID) {
         var options,
-            _args35 = arguments;
-        return _regeneratorRuntime.wrap(function _callee35$(_context35) {
+            _args36 = arguments;
+        return _regeneratorRuntime.wrap(function _callee36$(_context36) {
           while (1) {
-            switch (_context35.prev = _context35.next) {
+            switch (_context36.prev = _context36.next) {
               case 0:
-                options = _args35.length > 2 && _args35[2] !== undefined ? _args35[2] : {};
-                _context35.next = 3;
+                options = _args36.length > 2 && _args36[2] !== undefined ? _args36[2] : {};
+                _context36.next = 3;
                 return this.post(this.baseURL + '/moderation/mute', _objectSpread(_objectSpread({
                   target_id: targetID
                 }, userID ? {
@@ -7495,14 +7602,14 @@ var StreamChat = /*#__PURE__*/function () {
                 } : {}), options));
 
               case 3:
-                return _context35.abrupt("return", _context35.sent);
+                return _context36.abrupt("return", _context36.sent);
 
               case 4:
               case "end":
-                return _context35.stop();
+                return _context36.stop();
             }
           }
-        }, _callee35, this);
+        }, _callee36, this);
       }));
 
       function muteUser(_x45, _x46) {
@@ -7521,12 +7628,12 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "unmuteUser",
     value: function () {
-      var _unmuteUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee36(targetID, currentUserID) {
-        return _regeneratorRuntime.wrap(function _callee36$(_context36) {
+      var _unmuteUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee37(targetID, currentUserID) {
+        return _regeneratorRuntime.wrap(function _callee37$(_context37) {
           while (1) {
-            switch (_context36.prev = _context36.next) {
+            switch (_context37.prev = _context37.next) {
               case 0:
-                _context36.next = 2;
+                _context37.next = 2;
                 return this.post(this.baseURL + '/moderation/unmute', _objectSpread({
                   target_id: targetID
                 }, currentUserID ? {
@@ -7534,14 +7641,14 @@ var StreamChat = /*#__PURE__*/function () {
                 } : {}));
 
               case 2:
-                return _context36.abrupt("return", _context36.sent);
+                return _context37.abrupt("return", _context37.sent);
 
               case 3:
               case "end":
-                return _context36.stop();
+                return _context37.stop();
             }
           }
-        }, _callee36, this);
+        }, _callee37, this);
       }));
 
       function unmuteUser(_x47, _x48) {
@@ -7579,28 +7686,28 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "flagMessage",
     value: function () {
-      var _flagMessage = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee37(targetMessageID) {
+      var _flagMessage = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee38(targetMessageID) {
         var options,
-            _args37 = arguments;
-        return _regeneratorRuntime.wrap(function _callee37$(_context37) {
+            _args38 = arguments;
+        return _regeneratorRuntime.wrap(function _callee38$(_context38) {
           while (1) {
-            switch (_context37.prev = _context37.next) {
+            switch (_context38.prev = _context38.next) {
               case 0:
-                options = _args37.length > 1 && _args37[1] !== undefined ? _args37[1] : {};
-                _context37.next = 3;
+                options = _args38.length > 1 && _args38[1] !== undefined ? _args38[1] : {};
+                _context38.next = 3;
                 return this.post(this.baseURL + '/moderation/flag', _objectSpread({
                   target_message_id: targetMessageID
                 }, options));
 
               case 3:
-                return _context37.abrupt("return", _context37.sent);
+                return _context38.abrupt("return", _context38.sent);
 
               case 4:
               case "end":
-                return _context37.stop();
+                return _context38.stop();
             }
           }
-        }, _callee37, this);
+        }, _callee38, this);
       }));
 
       function flagMessage(_x49) {
@@ -7619,28 +7726,28 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "flagUser",
     value: function () {
-      var _flagUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee38(targetID) {
+      var _flagUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee39(targetID) {
         var options,
-            _args38 = arguments;
-        return _regeneratorRuntime.wrap(function _callee38$(_context38) {
+            _args39 = arguments;
+        return _regeneratorRuntime.wrap(function _callee39$(_context39) {
           while (1) {
-            switch (_context38.prev = _context38.next) {
+            switch (_context39.prev = _context39.next) {
               case 0:
-                options = _args38.length > 1 && _args38[1] !== undefined ? _args38[1] : {};
-                _context38.next = 3;
+                options = _args39.length > 1 && _args39[1] !== undefined ? _args39[1] : {};
+                _context39.next = 3;
                 return this.post(this.baseURL + '/moderation/flag', _objectSpread({
                   target_user_id: targetID
                 }, options));
 
               case 3:
-                return _context38.abrupt("return", _context38.sent);
+                return _context39.abrupt("return", _context39.sent);
 
               case 4:
               case "end":
-                return _context38.stop();
+                return _context39.stop();
             }
           }
-        }, _callee38, this);
+        }, _callee39, this);
       }));
 
       function flagUser(_x50) {
@@ -7659,28 +7766,28 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "unflagMessage",
     value: function () {
-      var _unflagMessage = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee39(targetMessageID) {
+      var _unflagMessage = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee40(targetMessageID) {
         var options,
-            _args39 = arguments;
-        return _regeneratorRuntime.wrap(function _callee39$(_context39) {
+            _args40 = arguments;
+        return _regeneratorRuntime.wrap(function _callee40$(_context40) {
           while (1) {
-            switch (_context39.prev = _context39.next) {
+            switch (_context40.prev = _context40.next) {
               case 0:
-                options = _args39.length > 1 && _args39[1] !== undefined ? _args39[1] : {};
-                _context39.next = 3;
+                options = _args40.length > 1 && _args40[1] !== undefined ? _args40[1] : {};
+                _context40.next = 3;
                 return this.post(this.baseURL + '/moderation/unflag', _objectSpread({
                   target_message_id: targetMessageID
                 }, options));
 
               case 3:
-                return _context39.abrupt("return", _context39.sent);
+                return _context40.abrupt("return", _context40.sent);
 
               case 4:
               case "end":
-                return _context39.stop();
+                return _context40.stop();
             }
           }
-        }, _callee39, this);
+        }, _callee40, this);
       }));
 
       function unflagMessage(_x51) {
@@ -7699,28 +7806,28 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "unflagUser",
     value: function () {
-      var _unflagUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee40(targetID) {
+      var _unflagUser = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee41(targetID) {
         var options,
-            _args40 = arguments;
-        return _regeneratorRuntime.wrap(function _callee40$(_context40) {
+            _args41 = arguments;
+        return _regeneratorRuntime.wrap(function _callee41$(_context41) {
           while (1) {
-            switch (_context40.prev = _context40.next) {
+            switch (_context41.prev = _context41.next) {
               case 0:
-                options = _args40.length > 1 && _args40[1] !== undefined ? _args40[1] : {};
-                _context40.next = 3;
+                options = _args41.length > 1 && _args41[1] !== undefined ? _args41[1] : {};
+                _context41.next = 3;
                 return this.post(this.baseURL + '/moderation/unflag', _objectSpread({
                   target_user_id: targetID
                 }, options));
 
               case 3:
-                return _context40.abrupt("return", _context40.sent);
+                return _context41.abrupt("return", _context41.sent);
 
               case 4:
               case "end":
-                return _context40.stop();
+                return _context41.stop();
             }
           }
-        }, _callee40, this);
+        }, _callee41, this);
       }));
 
       function unflagUser(_x52) {
@@ -7739,23 +7846,23 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "markAllRead",
     value: function () {
-      var _markAllRead = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee41() {
+      var _markAllRead = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee42() {
         var data,
-            _args41 = arguments;
-        return _regeneratorRuntime.wrap(function _callee41$(_context41) {
+            _args42 = arguments;
+        return _regeneratorRuntime.wrap(function _callee42$(_context42) {
           while (1) {
-            switch (_context41.prev = _context41.next) {
+            switch (_context42.prev = _context42.next) {
               case 0:
-                data = _args41.length > 0 && _args41[0] !== undefined ? _args41[0] : {};
-                _context41.next = 3;
+                data = _args42.length > 0 && _args42[0] !== undefined ? _args42[0] : {};
+                _context42.next = 3;
                 return this.post(this.baseURL + '/channels/read', _objectSpread({}, data));
 
               case 3:
               case "end":
-                return _context41.stop();
+                return _context42.stop();
             }
           }
-        }, _callee41, this);
+        }, _callee42, this);
       }));
 
       function markAllRead() {
@@ -7830,25 +7937,25 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "translateMessage",
     value: function () {
-      var _translateMessage = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee42(messageId, language) {
-        return _regeneratorRuntime.wrap(function _callee42$(_context42) {
+      var _translateMessage = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee43(messageId, language) {
+        return _regeneratorRuntime.wrap(function _callee43$(_context43) {
           while (1) {
-            switch (_context42.prev = _context42.next) {
+            switch (_context43.prev = _context43.next) {
               case 0:
-                _context42.next = 2;
+                _context43.next = 2;
                 return this.post(this.baseURL + "/messages/".concat(messageId, "/translate"), {
                   language: language
                 });
 
               case 2:
-                return _context42.abrupt("return", _context42.sent);
+                return _context43.abrupt("return", _context43.sent);
 
               case 3:
               case "end":
-                return _context42.stop();
+                return _context43.stop();
             }
           }
-        }, _callee42, this);
+        }, _callee43, this);
       }));
 
       function translateMessage(_x53, _x54) {
@@ -7950,14 +8057,14 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "updateMessage",
     value: function () {
-      var _updateMessage = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee43(message, userId) {
+      var _updateMessage = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee44(message, userId) {
         var clonedMessage, reservedMessageFields;
-        return _regeneratorRuntime.wrap(function _callee43$(_context43) {
+        return _regeneratorRuntime.wrap(function _callee44$(_context44) {
           while (1) {
-            switch (_context43.prev = _context43.next) {
+            switch (_context44.prev = _context44.next) {
               case 0:
                 if (message.id) {
-                  _context43.next = 2;
+                  _context44.next = 2;
                   break;
                 }
 
@@ -7994,20 +8101,20 @@ var StreamChat = /*#__PURE__*/function () {
                   });
                 }
 
-                _context43.next = 10;
+                _context44.next = 10;
                 return this.post(this.baseURL + "/messages/".concat(message.id), {
                   message: clonedMessage
                 });
 
               case 10:
-                return _context43.abrupt("return", _context43.sent);
+                return _context44.abrupt("return", _context44.sent);
 
               case 11:
               case "end":
-                return _context43.stop();
+                return _context44.stop();
             }
           }
-        }, _callee43, this);
+        }, _callee44, this);
       }));
 
       function updateMessage(_x55, _x56) {
@@ -8031,14 +8138,14 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "partialUpdateMessage",
     value: function () {
-      var _partialUpdateMessage = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee44(id, partialMessageObject, userId) {
+      var _partialUpdateMessage = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee45(id, partialMessageObject, userId) {
         var user;
-        return _regeneratorRuntime.wrap(function _callee44$(_context44) {
+        return _regeneratorRuntime.wrap(function _callee45$(_context45) {
           while (1) {
-            switch (_context44.prev = _context44.next) {
+            switch (_context45.prev = _context45.next) {
               case 0:
                 if (id) {
-                  _context44.next = 2;
+                  _context45.next = 2;
                   break;
                 }
 
@@ -8053,20 +8160,20 @@ var StreamChat = /*#__PURE__*/function () {
                   };
                 }
 
-                _context44.next = 6;
+                _context45.next = 6;
                 return this.put(this.baseURL + "/messages/".concat(id), _objectSpread(_objectSpread({}, partialMessageObject), {}, {
                   user: user
                 }));
 
               case 6:
-                return _context44.abrupt("return", _context44.sent);
+                return _context45.abrupt("return", _context45.sent);
 
               case 7:
               case "end":
-                return _context44.stop();
+                return _context45.stop();
             }
           }
-        }, _callee44, this);
+        }, _callee45, this);
       }));
 
       function partialUpdateMessage(_x57, _x58, _x59) {
@@ -8078,11 +8185,11 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "deleteMessage",
     value: function () {
-      var _deleteMessage = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee45(messageID, hardDelete) {
+      var _deleteMessage = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee46(messageID, hardDelete) {
         var params;
-        return _regeneratorRuntime.wrap(function _callee45$(_context45) {
+        return _regeneratorRuntime.wrap(function _callee46$(_context46) {
           while (1) {
-            switch (_context45.prev = _context45.next) {
+            switch (_context46.prev = _context46.next) {
               case 0:
                 params = {};
 
@@ -8092,18 +8199,18 @@ var StreamChat = /*#__PURE__*/function () {
                   };
                 }
 
-                _context45.next = 4;
+                _context46.next = 4;
                 return this.delete(this.baseURL + "/messages/".concat(messageID), params);
 
               case 4:
-                return _context45.abrupt("return", _context45.sent);
+                return _context46.abrupt("return", _context46.sent);
 
               case 5:
               case "end":
-                return _context45.stop();
+                return _context46.stop();
             }
           }
-        }, _callee45, this);
+        }, _callee46, this);
       }));
 
       function deleteMessage(_x60, _x61) {
@@ -8115,23 +8222,23 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "getMessage",
     value: function () {
-      var _getMessage = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee46(messageID) {
-        return _regeneratorRuntime.wrap(function _callee46$(_context46) {
+      var _getMessage = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee47(messageID) {
+        return _regeneratorRuntime.wrap(function _callee47$(_context47) {
           while (1) {
-            switch (_context46.prev = _context46.next) {
+            switch (_context47.prev = _context47.next) {
               case 0:
-                _context46.next = 2;
+                _context47.next = 2;
                 return this.get(this.baseURL + "/messages/".concat(messageID));
 
               case 2:
-                return _context46.abrupt("return", _context46.sent);
+                return _context47.abrupt("return", _context47.sent);
 
               case 3:
               case "end":
-                return _context46.stop();
+                return _context47.stop();
             }
           }
-        }, _callee46, this);
+        }, _callee47, this);
       }));
 
       function getMessage(_x62) {
@@ -8324,25 +8431,25 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "sendUserCustomEvent",
     value: function () {
-      var _sendUserCustomEvent = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee47(targetUserID, event) {
-        return _regeneratorRuntime.wrap(function _callee47$(_context47) {
+      var _sendUserCustomEvent = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee48(targetUserID, event) {
+        return _regeneratorRuntime.wrap(function _callee48$(_context48) {
           while (1) {
-            switch (_context47.prev = _context47.next) {
+            switch (_context48.prev = _context48.next) {
               case 0:
-                _context47.next = 2;
+                _context48.next = 2;
                 return this.post("".concat(this.baseURL, "/users/").concat(targetUserID, "/event"), {
                   event: event
                 });
 
               case 2:
-                return _context47.abrupt("return", _context47.sent);
+                return _context48.abrupt("return", _context48.sent);
 
               case 3:
               case "end":
-                return _context47.stop();
+                return _context48.stop();
             }
           }
-        }, _callee47, this);
+        }, _callee48, this);
       }));
 
       function sendUserCustomEvent(_x63, _x64) {
@@ -8408,29 +8515,29 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "createSegment",
     value: function () {
-      var _createSegment = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee48(params) {
+      var _createSegment = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee49(params) {
         var _yield$this$post, segment;
 
-        return _regeneratorRuntime.wrap(function _callee48$(_context48) {
+        return _regeneratorRuntime.wrap(function _callee49$(_context49) {
           while (1) {
-            switch (_context48.prev = _context48.next) {
+            switch (_context49.prev = _context49.next) {
               case 0:
-                _context48.next = 2;
+                _context49.next = 2;
                 return this.post(this.baseURL + "/segments", {
                   segment: params
                 });
 
               case 2:
-                _yield$this$post = _context48.sent;
+                _yield$this$post = _context49.sent;
                 segment = _yield$this$post.segment;
-                return _context48.abrupt("return", segment);
+                return _context49.abrupt("return", segment);
 
               case 5:
               case "end":
-                return _context48.stop();
+                return _context49.stop();
             }
           }
-        }, _callee48, this);
+        }, _callee49, this);
       }));
 
       function createSegment(_x65) {
@@ -8450,27 +8557,27 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "getSegment",
     value: function () {
-      var _getSegment = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee49(id) {
+      var _getSegment = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee50(id) {
         var _yield$this$get, segment;
 
-        return _regeneratorRuntime.wrap(function _callee49$(_context49) {
+        return _regeneratorRuntime.wrap(function _callee50$(_context50) {
           while (1) {
-            switch (_context49.prev = _context49.next) {
+            switch (_context50.prev = _context50.next) {
               case 0:
-                _context49.next = 2;
+                _context50.next = 2;
                 return this.get(this.baseURL + "/segments/".concat(id));
 
               case 2:
-                _yield$this$get = _context49.sent;
+                _yield$this$get = _context50.sent;
                 segment = _yield$this$get.segment;
-                return _context49.abrupt("return", segment);
+                return _context50.abrupt("return", segment);
 
               case 5:
               case "end":
-                return _context49.stop();
+                return _context50.stop();
             }
           }
-        }, _callee49, this);
+        }, _callee50, this);
       }));
 
       function getSegment(_x66) {
@@ -8489,27 +8596,27 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "listSegments",
     value: function () {
-      var _listSegments = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee50(options) {
+      var _listSegments = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee51(options) {
         var _yield$this$get2, segments;
 
-        return _regeneratorRuntime.wrap(function _callee50$(_context50) {
+        return _regeneratorRuntime.wrap(function _callee51$(_context51) {
           while (1) {
-            switch (_context50.prev = _context50.next) {
+            switch (_context51.prev = _context51.next) {
               case 0:
-                _context50.next = 2;
+                _context51.next = 2;
                 return this.get(this.baseURL + "/segments", options);
 
               case 2:
-                _yield$this$get2 = _context50.sent;
+                _yield$this$get2 = _context51.sent;
                 segments = _yield$this$get2.segments;
-                return _context50.abrupt("return", segments);
+                return _context51.abrupt("return", segments);
 
               case 5:
               case "end":
-                return _context50.stop();
+                return _context51.stop();
             }
           }
-        }, _callee50, this);
+        }, _callee51, this);
       }));
 
       function listSegments(_x67) {
@@ -8530,29 +8637,29 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "updateSegment",
     value: function () {
-      var _updateSegment = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee51(id, params) {
+      var _updateSegment = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee52(id, params) {
         var _yield$this$put, segment;
 
-        return _regeneratorRuntime.wrap(function _callee51$(_context51) {
+        return _regeneratorRuntime.wrap(function _callee52$(_context52) {
           while (1) {
-            switch (_context51.prev = _context51.next) {
+            switch (_context52.prev = _context52.next) {
               case 0:
-                _context51.next = 2;
+                _context52.next = 2;
                 return this.put(this.baseURL + "/segments/".concat(id), {
                   segment: params
                 });
 
               case 2:
-                _yield$this$put = _context51.sent;
+                _yield$this$put = _context52.sent;
                 segment = _yield$this$put.segment;
-                return _context51.abrupt("return", segment);
+                return _context52.abrupt("return", segment);
 
               case 5:
               case "end":
-                return _context51.stop();
+                return _context52.stop();
             }
           }
-        }, _callee51, this);
+        }, _callee52, this);
       }));
 
       function updateSegment(_x68, _x69) {
@@ -8572,19 +8679,19 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "deleteSegment",
     value: function () {
-      var _deleteSegment = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee52(id) {
-        return _regeneratorRuntime.wrap(function _callee52$(_context52) {
+      var _deleteSegment = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee53(id) {
+        return _regeneratorRuntime.wrap(function _callee53$(_context53) {
           while (1) {
-            switch (_context52.prev = _context52.next) {
+            switch (_context53.prev = _context53.next) {
               case 0:
-                return _context52.abrupt("return", this.delete(this.baseURL + "/segments/".concat(id)));
+                return _context53.abrupt("return", this.delete(this.baseURL + "/segments/".concat(id)));
 
               case 1:
               case "end":
-                return _context52.stop();
+                return _context53.stop();
             }
           }
-        }, _callee52, this);
+        }, _callee53, this);
       }));
 
       function deleteSegment(_x70) {
@@ -8604,29 +8711,29 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "createCampaign",
     value: function () {
-      var _createCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee53(params) {
+      var _createCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee54(params) {
         var _yield$this$post2, campaign;
 
-        return _regeneratorRuntime.wrap(function _callee53$(_context53) {
+        return _regeneratorRuntime.wrap(function _callee54$(_context54) {
           while (1) {
-            switch (_context53.prev = _context53.next) {
+            switch (_context54.prev = _context54.next) {
               case 0:
-                _context53.next = 2;
+                _context54.next = 2;
                 return this.post(this.baseURL + "/campaigns", {
                   campaign: params
                 });
 
               case 2:
-                _yield$this$post2 = _context53.sent;
+                _yield$this$post2 = _context54.sent;
                 campaign = _yield$this$post2.campaign;
-                return _context53.abrupt("return", campaign);
+                return _context54.abrupt("return", campaign);
 
               case 5:
               case "end":
-                return _context53.stop();
+                return _context54.stop();
             }
           }
-        }, _callee53, this);
+        }, _callee54, this);
       }));
 
       function createCampaign(_x71) {
@@ -8646,27 +8753,27 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "getCampaign",
     value: function () {
-      var _getCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee54(id) {
+      var _getCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee55(id) {
         var _yield$this$get3, campaign;
 
-        return _regeneratorRuntime.wrap(function _callee54$(_context54) {
+        return _regeneratorRuntime.wrap(function _callee55$(_context55) {
           while (1) {
-            switch (_context54.prev = _context54.next) {
+            switch (_context55.prev = _context55.next) {
               case 0:
-                _context54.next = 2;
+                _context55.next = 2;
                 return this.get(this.baseURL + "/campaigns/".concat(id));
 
               case 2:
-                _yield$this$get3 = _context54.sent;
+                _yield$this$get3 = _context55.sent;
                 campaign = _yield$this$get3.campaign;
-                return _context54.abrupt("return", campaign);
+                return _context55.abrupt("return", campaign);
 
               case 5:
               case "end":
-                return _context54.stop();
+                return _context55.stop();
             }
           }
-        }, _callee54, this);
+        }, _callee55, this);
       }));
 
       function getCampaign(_x72) {
@@ -8685,27 +8792,27 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "listCampaigns",
     value: function () {
-      var _listCampaigns = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee55(options) {
+      var _listCampaigns = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee56(options) {
         var _yield$this$get4, campaigns;
 
-        return _regeneratorRuntime.wrap(function _callee55$(_context55) {
+        return _regeneratorRuntime.wrap(function _callee56$(_context56) {
           while (1) {
-            switch (_context55.prev = _context55.next) {
+            switch (_context56.prev = _context56.next) {
               case 0:
-                _context55.next = 2;
+                _context56.next = 2;
                 return this.get(this.baseURL + "/campaigns", options);
 
               case 2:
-                _yield$this$get4 = _context55.sent;
+                _yield$this$get4 = _context56.sent;
                 campaigns = _yield$this$get4.campaigns;
-                return _context55.abrupt("return", campaigns);
+                return _context56.abrupt("return", campaigns);
 
               case 5:
               case "end":
-                return _context55.stop();
+                return _context56.stop();
             }
           }
-        }, _callee55, this);
+        }, _callee56, this);
       }));
 
       function listCampaigns(_x73) {
@@ -8726,29 +8833,29 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "updateCampaign",
     value: function () {
-      var _updateCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee56(id, params) {
+      var _updateCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee57(id, params) {
         var _yield$this$put2, campaign;
 
-        return _regeneratorRuntime.wrap(function _callee56$(_context56) {
+        return _regeneratorRuntime.wrap(function _callee57$(_context57) {
           while (1) {
-            switch (_context56.prev = _context56.next) {
+            switch (_context57.prev = _context57.next) {
               case 0:
-                _context56.next = 2;
+                _context57.next = 2;
                 return this.put(this.baseURL + "/campaigns/".concat(id), {
                   campaign: params
                 });
 
               case 2:
-                _yield$this$put2 = _context56.sent;
+                _yield$this$put2 = _context57.sent;
                 campaign = _yield$this$put2.campaign;
-                return _context56.abrupt("return", campaign);
+                return _context57.abrupt("return", campaign);
 
               case 5:
               case "end":
-                return _context56.stop();
+                return _context57.stop();
             }
           }
-        }, _callee56, this);
+        }, _callee57, this);
       }));
 
       function updateCampaign(_x74, _x75) {
@@ -8768,19 +8875,19 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "deleteCampaign",
     value: function () {
-      var _deleteCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee57(id) {
-        return _regeneratorRuntime.wrap(function _callee57$(_context57) {
+      var _deleteCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee58(id) {
+        return _regeneratorRuntime.wrap(function _callee58$(_context58) {
           while (1) {
-            switch (_context57.prev = _context57.next) {
+            switch (_context58.prev = _context58.next) {
               case 0:
-                return _context57.abrupt("return", this.delete(this.baseURL + "/campaigns/".concat(id)));
+                return _context58.abrupt("return", this.delete(this.baseURL + "/campaigns/".concat(id)));
 
               case 1:
               case "end":
-                return _context57.stop();
+                return _context58.stop();
             }
           }
-        }, _callee57, this);
+        }, _callee58, this);
       }));
 
       function deleteCampaign(_x76) {
@@ -8801,30 +8908,30 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "scheduleCampaign",
     value: function () {
-      var _scheduleCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee58(id, params) {
+      var _scheduleCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee59(id, params) {
         var sendAt, _yield$this$patch, campaign;
 
-        return _regeneratorRuntime.wrap(function _callee58$(_context58) {
+        return _regeneratorRuntime.wrap(function _callee59$(_context59) {
           while (1) {
-            switch (_context58.prev = _context58.next) {
+            switch (_context59.prev = _context59.next) {
               case 0:
                 sendAt = params.sendAt;
-                _context58.next = 3;
+                _context59.next = 3;
                 return this.patch(this.baseURL + "/campaigns/".concat(id, "/schedule"), {
                   send_at: sendAt
                 });
 
               case 3:
-                _yield$this$patch = _context58.sent;
+                _yield$this$patch = _context59.sent;
                 campaign = _yield$this$patch.campaign;
-                return _context58.abrupt("return", campaign);
+                return _context59.abrupt("return", campaign);
 
               case 6:
               case "end":
-                return _context58.stop();
+                return _context59.stop();
             }
           }
-        }, _callee58, this);
+        }, _callee59, this);
       }));
 
       function scheduleCampaign(_x77, _x78) {
@@ -8844,27 +8951,27 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "stopCampaign",
     value: function () {
-      var _stopCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee59(id) {
+      var _stopCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee60(id) {
         var _yield$this$patch2, campaign;
 
-        return _regeneratorRuntime.wrap(function _callee59$(_context59) {
+        return _regeneratorRuntime.wrap(function _callee60$(_context60) {
           while (1) {
-            switch (_context59.prev = _context59.next) {
+            switch (_context60.prev = _context60.next) {
               case 0:
-                _context59.next = 2;
+                _context60.next = 2;
                 return this.patch(this.baseURL + "/campaigns/".concat(id, "/stop"));
 
               case 2:
-                _yield$this$patch2 = _context59.sent;
+                _yield$this$patch2 = _context60.sent;
                 campaign = _yield$this$patch2.campaign;
-                return _context59.abrupt("return", campaign);
+                return _context60.abrupt("return", campaign);
 
               case 5:
               case "end":
-                return _context59.stop();
+                return _context60.stop();
             }
           }
-        }, _callee59, this);
+        }, _callee60, this);
       }));
 
       function stopCampaign(_x79) {
@@ -8884,27 +8991,27 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "resumeCampaign",
     value: function () {
-      var _resumeCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee60(id) {
+      var _resumeCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee61(id) {
         var _yield$this$patch3, campaign;
 
-        return _regeneratorRuntime.wrap(function _callee60$(_context60) {
+        return _regeneratorRuntime.wrap(function _callee61$(_context61) {
           while (1) {
-            switch (_context60.prev = _context60.next) {
+            switch (_context61.prev = _context61.next) {
               case 0:
-                _context60.next = 2;
+                _context61.next = 2;
                 return this.patch(this.baseURL + "/campaigns/".concat(id, "/resume"));
 
               case 2:
-                _yield$this$patch3 = _context60.sent;
+                _yield$this$patch3 = _context61.sent;
                 campaign = _yield$this$patch3.campaign;
-                return _context60.abrupt("return", campaign);
+                return _context61.abrupt("return", campaign);
 
               case 5:
               case "end":
-                return _context60.stop();
+                return _context61.stop();
             }
           }
-        }, _callee60, this);
+        }, _callee61, this);
       }));
 
       function resumeCampaign(_x80) {
@@ -8924,30 +9031,30 @@ var StreamChat = /*#__PURE__*/function () {
   }, {
     key: "testCampaign",
     value: function () {
-      var _testCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee61(id, params) {
+      var _testCampaign = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee62(id, params) {
         var users, _yield$this$post3, campaign;
 
-        return _regeneratorRuntime.wrap(function _callee61$(_context61) {
+        return _regeneratorRuntime.wrap(function _callee62$(_context62) {
           while (1) {
-            switch (_context61.prev = _context61.next) {
+            switch (_context62.prev = _context62.next) {
               case 0:
                 users = params.users;
-                _context61.next = 3;
+                _context62.next = 3;
                 return this.post(this.baseURL + "/campaigns/".concat(id, "/test"), {
                   users: users
                 });
 
               case 3:
-                _yield$this$post3 = _context61.sent;
+                _yield$this$post3 = _context62.sent;
                 campaign = _yield$this$post3.campaign;
-                return _context61.abrupt("return", campaign);
+                return _context62.abrupt("return", campaign);
 
               case 6:
               case "end":
-                return _context61.stop();
+                return _context62.stop();
             }
           }
-        }, _callee61, this);
+        }, _callee62, this);
       }));
 
       function testCampaign(_x81, _x82) {

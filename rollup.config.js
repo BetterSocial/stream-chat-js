@@ -15,6 +15,7 @@ const externalPackages = [
 	'form-data',
 	'isomorphic-ws',
 	'base64-js',
+	'@react-native-async-storage/async-storage',
 	/@babel\/runtime/,
 ];
 

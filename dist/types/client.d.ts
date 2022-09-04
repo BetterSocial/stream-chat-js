@@ -410,18 +410,28 @@ export declare class StreamChat<AttachmentType extends UnknownType = UnknownType
      */
     queryMessageFlags(filterConditions?: MessageFlagsFilters, options?: MessageFlagsPaginationOptions): Promise<MessageFlagsResponse<ChannelType, CommandType, UserType, UnknownType, UnknownType, UnknownType>>;
     /**
+     * getLocalChannelData - Get channel data from local Storage
+     *
+     * @param {ChannelStateOptions} [stateOptions] State options object. These options will only be used for state management and won't be sent in the request.
+     * - stateOptions.skipInitialization - Skips the initialization of the state for the channels matching the ids in the list.
+     *
+     * @return {Promise<APIResponse & { channels: Array<ChannelAPIResponse<AttachmentType,ChannelType,CommandType,MessageType,ReactionType,UserType>>}> } search channels response
+     */
+    getLocalChannelData(stateOptions?: ChannelStateOptions): Promise<Channel<AttachmentType, ChannelType, CommandType, EventType, MessageType, ReactionType, UserType>[]>;
+    /**
      * queryChannels - Query channels
      *
      * @param {ChannelFilters<ChannelType, CommandType, UserType>} filterConditions object MongoDB style filters
      * @param {ChannelSort<ChannelType>} [sort] Sort options, for instance {created_at: -1}.
      * When using multiple fields, make sure you use array of objects to guarantee field order, for instance [{last_updated: -1}, {created_at: 1}]
      * @param {ChannelOptions} [options] Options object
+     * @param {boolean} [firstStage] indicator to set data to local storage
      * @param {ChannelStateOptions} [stateOptions] State options object. These options will only be used for state management and won't be sent in the request.
      * - stateOptions.skipInitialization - Skips the initialization of the state for the channels matching the ids in the list.
      *
      * @return {Promise<APIResponse & { channels: Array<ChannelAPIResponse<AttachmentType,ChannelType,CommandType,MessageType,ReactionType,UserType>>}> } search channels response
      */
-    queryChannels(filterConditions: ChannelFilters<ChannelType, CommandType, UserType>, sort?: ChannelSort<ChannelType>, options?: ChannelOptions, stateOptions?: ChannelStateOptions): Promise<Channel<AttachmentType, ChannelType, CommandType, EventType, MessageType, ReactionType, UserType>[]>;
+    queryChannels(filterConditions: ChannelFilters<ChannelType, CommandType, UserType>, sort?: ChannelSort<ChannelType>, options?: ChannelOptions, firstStage?: boolean, stateOptions?: ChannelStateOptions): Promise<Channel<AttachmentType, ChannelType, CommandType, EventType, MessageType, ReactionType, UserType>[]>;
     /**
      * search - Query messages
      *
