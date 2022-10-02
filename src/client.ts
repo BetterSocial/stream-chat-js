@@ -119,27 +119,27 @@ function isString(x: unknown): x is string {
 }
 
 export class StreamChat<
-  AttachmentType extends UnknownType = UnknownType,
-  ChannelType extends UnknownType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  EventType extends UnknownType = UnknownType,
-  MessageType extends UnknownType = UnknownType,
-  ReactionType extends UnknownType = UnknownType,
-  UserType extends UnknownType = UnknownType
-> {
+    AttachmentType extends UnknownType = UnknownType,
+    ChannelType extends UnknownType = UnknownType,
+    CommandType extends string = LiteralStringForUnion,
+    EventType extends UnknownType = UnknownType,
+    MessageType extends UnknownType = UnknownType,
+    ReactionType extends UnknownType = UnknownType,
+    UserType extends UnknownType = UnknownType
+    > {
   private static _instance?: unknown | StreamChat; // type is undefined|StreamChat, unknown is due to TS limitations with statics
 
   _user?: OwnUserResponse<ChannelType, CommandType, UserType> | UserResponse<UserType>;
   activeChannels: {
     [key: string]: Channel<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >;
+        AttachmentType,
+        ChannelType,
+        CommandType,
+        EventType,
+        MessageType,
+        ReactionType,
+        UserType
+        >;
   };
   anonymous: boolean;
   axiosInstance: AxiosInstance;
@@ -153,18 +153,18 @@ export class StreamChat<
   key: string;
   listeners: {
     [key: string]: Array<
-      (
-        event: Event<
-          AttachmentType,
-          ChannelType,
-          CommandType,
-          EventType,
-          MessageType,
-          ReactionType,
-          UserType
-        >,
-      ) => void
-    >;
+        (
+            event: Event<
+                AttachmentType,
+                ChannelType,
+                CommandType,
+                EventType,
+                MessageType,
+                ReactionType,
+                UserType
+                >,
+        ) => void
+        >;
   };
   logger: Logger;
   /**
@@ -215,9 +215,9 @@ export class StreamChat<
   constructor(key: string, options?: StreamChatOptions);
   constructor(key: string, secret?: string, options?: StreamChatOptions);
   constructor(
-    key: string,
-    secretOrOptions?: StreamChatOptions | string,
-    options?: StreamChatOptions,
+      key: string,
+      secretOrOptions?: StreamChatOptions | string,
+      options?: StreamChatOptions,
   ) {
     // set the key
     this.key = key;
@@ -234,15 +234,15 @@ export class StreamChat<
 
     // set the options... and figure out defaults...
     const inputOptions = options
-      ? options
-      : secretOrOptions && !isString(secretOrOptions)
-      ? secretOrOptions
-      : {};
+        ? options
+        : secretOrOptions && !isString(secretOrOptions)
+            ? secretOrOptions
+            : {};
 
     this.browser =
-      typeof inputOptions.browser !== 'undefined'
-        ? inputOptions.browser
-        : typeof window !== 'undefined';
+        typeof inputOptions.browser !== 'undefined'
+            ? inputOptions.browser
+            : typeof window !== 'undefined';
     this.node = !this.browser;
 
     this.options = {
@@ -362,92 +362,17 @@ export class StreamChat<
    * StreamChat.getInstance('api_key', "secret", { httpsAgent: customAgent })
    */
   public static getInstance<
-    AttachmentType extends UnknownType = UnknownType,
-    ChannelType extends UnknownType = UnknownType,
-    CommandType extends string = LiteralStringForUnion,
-    EventType extends UnknownType = UnknownType,
-    MessageType extends UnknownType = UnknownType,
-    ReactionType extends UnknownType = UnknownType,
-    UserType extends UnknownType = UnknownType
-  >(
-    key: string,
-    options?: StreamChatOptions,
+      AttachmentType extends UnknownType = UnknownType,
+      ChannelType extends UnknownType = UnknownType,
+      CommandType extends string = LiteralStringForUnion,
+      EventType extends UnknownType = UnknownType,
+      MessageType extends UnknownType = UnknownType,
+      ReactionType extends UnknownType = UnknownType,
+      UserType extends UnknownType = UnknownType
+      >(
+      key: string,
+      options?: StreamChatOptions,
   ): StreamChat<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    EventType,
-    MessageType,
-    ReactionType,
-    UserType
-  >;
-  public static getInstance<
-    AttachmentType extends UnknownType = UnknownType,
-    ChannelType extends UnknownType = UnknownType,
-    CommandType extends string = LiteralStringForUnion,
-    EventType extends UnknownType = UnknownType,
-    MessageType extends UnknownType = UnknownType,
-    ReactionType extends UnknownType = UnknownType,
-    UserType extends UnknownType = UnknownType
-  >(
-    key: string,
-    secret?: string,
-    options?: StreamChatOptions,
-  ): StreamChat<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    EventType,
-    MessageType,
-    ReactionType,
-    UserType
-  >;
-  public static getInstance<
-    AttachmentType extends UnknownType = UnknownType,
-    ChannelType extends UnknownType = UnknownType,
-    CommandType extends string = LiteralStringForUnion,
-    EventType extends UnknownType = UnknownType,
-    MessageType extends UnknownType = UnknownType,
-    ReactionType extends UnknownType = UnknownType,
-    UserType extends UnknownType = UnknownType
-  >(
-    key: string,
-    secretOrOptions?: StreamChatOptions | string,
-    options?: StreamChatOptions,
-  ): StreamChat<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    EventType,
-    MessageType,
-    ReactionType,
-    UserType
-  > {
-    if (!StreamChat._instance) {
-      if (typeof secretOrOptions === 'string') {
-        StreamChat._instance = new StreamChat<
-          AttachmentType,
-          ChannelType,
-          CommandType,
-          EventType,
-          MessageType,
-          ReactionType,
-          UserType
-        >(key, secretOrOptions, options);
-      } else {
-        StreamChat._instance = new StreamChat<
-          AttachmentType,
-          ChannelType,
-          CommandType,
-          EventType,
-          MessageType,
-          ReactionType,
-          UserType
-        >(key, secretOrOptions);
-      }
-    }
-
-    return StreamChat._instance as StreamChat<
       AttachmentType,
       ChannelType,
       CommandType,
@@ -455,7 +380,82 @@ export class StreamChat<
       MessageType,
       ReactionType,
       UserType
-    >;
+      >;
+  public static getInstance<
+      AttachmentType extends UnknownType = UnknownType,
+      ChannelType extends UnknownType = UnknownType,
+      CommandType extends string = LiteralStringForUnion,
+      EventType extends UnknownType = UnknownType,
+      MessageType extends UnknownType = UnknownType,
+      ReactionType extends UnknownType = UnknownType,
+      UserType extends UnknownType = UnknownType
+      >(
+      key: string,
+      secret?: string,
+      options?: StreamChatOptions,
+  ): StreamChat<
+      AttachmentType,
+      ChannelType,
+      CommandType,
+      EventType,
+      MessageType,
+      ReactionType,
+      UserType
+      >;
+  public static getInstance<
+      AttachmentType extends UnknownType = UnknownType,
+      ChannelType extends UnknownType = UnknownType,
+      CommandType extends string = LiteralStringForUnion,
+      EventType extends UnknownType = UnknownType,
+      MessageType extends UnknownType = UnknownType,
+      ReactionType extends UnknownType = UnknownType,
+      UserType extends UnknownType = UnknownType
+      >(
+      key: string,
+      secretOrOptions?: StreamChatOptions | string,
+      options?: StreamChatOptions,
+  ): StreamChat<
+      AttachmentType,
+      ChannelType,
+      CommandType,
+      EventType,
+      MessageType,
+      ReactionType,
+      UserType
+      > {
+    if (!StreamChat._instance) {
+      if (typeof secretOrOptions === 'string') {
+        StreamChat._instance = new StreamChat<
+            AttachmentType,
+            ChannelType,
+            CommandType,
+            EventType,
+            MessageType,
+            ReactionType,
+            UserType
+            >(key, secretOrOptions, options);
+      } else {
+        StreamChat._instance = new StreamChat<
+            AttachmentType,
+            ChannelType,
+            CommandType,
+            EventType,
+            MessageType,
+            ReactionType,
+            UserType
+            >(key, secretOrOptions);
+      }
+    }
+
+    return StreamChat._instance as StreamChat<
+        AttachmentType,
+        ChannelType,
+        CommandType,
+        EventType,
+        MessageType,
+        ReactionType,
+        UserType
+        >;
   }
 
   devToken(userID: string) {
@@ -482,8 +482,8 @@ export class StreamChat<
    * @return {ConnectAPIResponse<ChannelType, CommandType, UserType>} Returns a promise that resolves when the connection is setup
    */
   connectUser = async (
-    user: OwnUserResponse<ChannelType, CommandType, UserType> | UserResponse<UserType>,
-    userTokenOrProvider: TokenOrProvider,
+      user: OwnUserResponse<ChannelType, CommandType, UserType> | UserResponse<UserType>,
+      userTokenOrProvider: TokenOrProvider,
   ) => {
     if (!user.id) {
       throw new Error('The "id" field on the user is missing');
@@ -495,23 +495,23 @@ export class StreamChat<
      */
     if (this.userID === user.id && this.setUserPromise) {
       console.warn(
-        'Consecutive calls to connectUser is detected, ideally you should only call this function once in your app.',
+          'Consecutive calls to connectUser is detected, ideally you should only call this function once in your app.',
       );
       return this.setUserPromise;
     }
 
     if (this.userID) {
       throw new Error(
-        'Use client.disconnect() before trying to connect as a different user. connectUser was called twice.',
+          'Use client.disconnect() before trying to connect as a different user. connectUser was called twice.',
       );
     }
 
     if (
-      (this._isUsingServerAuth() || this.node) &&
-      !this.options.allowServerSideConnect
+        (this._isUsingServerAuth() || this.node) &&
+        !this.options.allowServerSideConnect
     ) {
       console.warn(
-        'Please do not use connectUser server side. connectUser impacts MAU and concurrent connection usage and thus your bill. If you have a valid use-case, add "allowServerSideConnect: true" to the client options to disable this warning.',
+          'Please do not use connectUser server side. connectUser impacts MAU and concurrent connection usage and thus your bill. If you have a valid use-case, add "allowServerSideConnect: true" to the client options to disable this warning.',
       );
     }
 
@@ -525,7 +525,7 @@ export class StreamChat<
     const wsPromise = this.openConnection();
 
     this.setUserPromise = Promise.all([setTokenPromise, wsPromise]).then(
-      (result) => result[1], // We only return connection promise;
+        (result) => result[1], // We only return connection promise;
     );
 
     try {
@@ -550,10 +550,10 @@ export class StreamChat<
   setUser = this.connectUser;
 
   _setToken = (user: UserResponse<UserType>, userTokenOrProvider: TokenOrProvider) =>
-    this.tokenManager.setTokenOrProvider(userTokenOrProvider, user);
+      this.tokenManager.setTokenOrProvider(userTokenOrProvider, user);
 
   _setUser(
-    user: OwnUserResponse<ChannelType, CommandType, UserType> | UserResponse<UserType>,
+      user: OwnUserResponse<ChannelType, CommandType, UserType> | UserResponse<UserType>,
   ) {
     /**
      * This one is used by the frontend. This is a copy of the current user object stored on backend.
@@ -596,17 +596,17 @@ export class StreamChat<
   openConnection = async () => {
     if (!this.userID) {
       throw Error(
-        'User is not set on client, use client.connectUser or client.connectAnonymousUser instead',
+          'User is not set on client, use client.connectUser or client.connectAnonymousUser instead',
       );
     }
 
     if (this.wsConnection?.isHealthy && this._hasConnectionID()) {
       this.logger(
-        'info',
-        'client:openConnection() - openConnection called twice, healthy connection already exists',
-        {
-          tags: ['connection', 'client'],
-        },
+          'info',
+          'client:openConnection() - openConnection called twice, healthy connection already exists',
+          {
+            tags: ['connection', 'client'],
+          },
       );
 
       return Promise.resolve();
@@ -627,10 +627,10 @@ export class StreamChat<
   _setupConnection = this.openConnection;
 
   /**
-	 * updateAppSettings - updates application settings
-	 *
-	 * @param {AppSettings} options App settings.
-	 * 		IE: {
+   * updateAppSettings - updates application settings
+   *
+   * @param {AppSettings} options App settings.
+   * 		IE: {
 	  			"apn_config": {
 					"auth_type": "token",
 					"auth_key": fs.readFileSync(
@@ -650,11 +650,11 @@ export class StreamChat<
 				},
 				"webhook_url": "https://acme.com/my/awesome/webhook/"
 			}
-	 */
+   */
   async updateAppSettings(options: AppSettings) {
     if (options.apn_config?.p12_cert) {
       options.apn_config.p12_cert = Buffer.from(options.apn_config.p12_cert).toString(
-        'base64',
+          'base64',
       );
     }
     return await this.patch<APIResponse>(this.baseURL + '/app', options);
@@ -667,7 +667,7 @@ export class StreamChat<
 
     if (before === '') {
       throw new Error(
-        "Don't pass blank string for since, use null instead if resetting the token revoke",
+          "Don't pass blank string for since, use null instead if resetting the token revoke",
       );
     }
 
@@ -721,18 +721,18 @@ export class StreamChat<
   }
 
   /**
-	 * testPushSettings - Tests the push settings for a user with a random chat message and the configured push templates
-	 *
-	 * @param {string} userID User ID. If user has no devices, it will error
-	 * @param {TestPushDataInput} [data] Overrides for push templates/message used
-	 * 		IE: {
+   * testPushSettings - Tests the push settings for a user with a random chat message and the configured push templates
+   *
+   * @param {string} userID User ID. If user has no devices, it will error
+   * @param {TestPushDataInput} [data] Overrides for push templates/message used
+   * 		IE: {
 				  messageID: 'id-of-message',//will error if message does not exist
 				  apnTemplate: '{}', //if app doesn't have apn configured it will error
 				  firebaseTemplate: '{}', //if app doesn't have firebase configured it will error
 				  firebaseDataTemplate: '{}', //if app doesn't have firebase configured it will error
 				  skipDevices: true, // skip config/device checks and sending to real devices
 			}
-	 */
+   */
   async testPushSettings(userID: string, data: TestPushDataInput = {}) {
     return await this.post<CheckPushResponse>(this.baseURL + '/check_push', {
       user_id: userID,
@@ -740,8 +740,8 @@ export class StreamChat<
       ...(data.apnTemplate ? { apn_template: data.apnTemplate } : {}),
       ...(data.firebaseTemplate ? { firebase_template: data.firebaseTemplate } : {}),
       ...(data.firebaseDataTemplate
-        ? { firebase_data_template: data.firebaseDataTemplate }
-        : {}),
+          ? { firebase_data_template: data.firebaseDataTemplate }
+          : {}),
       ...(data.skipDevices ? { skip_devices: true } : {}),
     });
   }
@@ -810,11 +810,11 @@ export class StreamChat<
    */
   connectAnonymousUser = () => {
     if (
-      (this._isUsingServerAuth() || this.node) &&
-      !this.options.allowServerSideConnect
+        (this._isUsingServerAuth() || this.node) &&
+        !this.options.allowServerSideConnect
     ) {
       console.warn(
-        'Please do not use connectUser server side. connectUser impacts MAU and concurrent connection usage and thus your bill. If you have a valid use-case, add "allowServerSideConnect: true" to the client options to disable this warning.',
+          'Please do not use connectUser server side. connectUser impacts MAU and concurrent connection usage and thus your bill. If you have a valid use-case, add "allowServerSideConnect: true" to the client options to disable this warning.',
       );
     }
 
@@ -848,8 +848,8 @@ export class StreamChat<
     this.anonymous = true;
     try {
       response = await this.post<
-        APIResponse & { access_token: string; user: UserResponse<UserType> }
-      >(this.baseURL + '/guest', { user });
+          APIResponse & { access_token: string; user: UserResponse<UserType> }
+          >(this.baseURL + '/guest', { user });
     } catch (e) {
       this.anonymous = false;
       throw e;
@@ -858,8 +858,8 @@ export class StreamChat<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { created_at, updated_at, last_active, online, ...guestUser } = response.user;
     return await this.connectUser(
-      guestUser as UserResponse<UserType>,
-      response.access_token,
+        guestUser as UserResponse<UserType>,
+        response.access_token,
     );
   }
 
@@ -902,31 +902,7 @@ export class StreamChat<
    * @return {{ unsubscribe: () => void }} Description
    */
   on(
-    callback: EventHandler<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
-  ): { unsubscribe: () => void };
-  on(
-    eventType: string,
-    callback: EventHandler<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
-  ): { unsubscribe: () => void };
-  on(
-    callbackOrString:
-      | EventHandler<
+      callback: EventHandler<
           AttachmentType,
           ChannelType,
           CommandType,
@@ -934,17 +910,41 @@ export class StreamChat<
           MessageType,
           ReactionType,
           UserType
-        >
-      | string,
-    callbackOrNothing?: EventHandler<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
+          >,
+  ): { unsubscribe: () => void };
+  on(
+      eventType: string,
+      callback: EventHandler<
+          AttachmentType,
+          ChannelType,
+          CommandType,
+          EventType,
+          MessageType,
+          ReactionType,
+          UserType
+          >,
+  ): { unsubscribe: () => void };
+  on(
+      callbackOrString:
+          | EventHandler<
+          AttachmentType,
+          ChannelType,
+          CommandType,
+          EventType,
+          MessageType,
+          ReactionType,
+          UserType
+          >
+          | string,
+      callbackOrNothing?: EventHandler<
+          AttachmentType,
+          ChannelType,
+          CommandType,
+          EventType,
+          MessageType,
+          ReactionType,
+          UserType
+          >,
   ): { unsubscribe: () => void } {
     const key = callbackOrNothing ? (callbackOrString as string) : 'all';
     const valid = isValidEventType(key);
@@ -952,16 +952,16 @@ export class StreamChat<
       throw Error(`Invalid event type ${key}`);
     }
     const callback = callbackOrNothing
-      ? callbackOrNothing
-      : (callbackOrString as EventHandler<
-          AttachmentType,
-          ChannelType,
-          CommandType,
-          EventType,
-          MessageType,
-          ReactionType,
-          UserType
-        >);
+        ? callbackOrNothing
+        : (callbackOrString as EventHandler<
+            AttachmentType,
+            ChannelType,
+            CommandType,
+            EventType,
+            MessageType,
+            ReactionType,
+            UserType
+            >);
     if (!(key in this.listeners)) {
       this.listeners[key] = [];
     }
@@ -985,31 +985,7 @@ export class StreamChat<
    *
    */
   off(
-    callback: EventHandler<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
-  ): void;
-  off(
-    eventType: string,
-    callback: EventHandler<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
-  ): void;
-  off(
-    callbackOrString:
-      | EventHandler<
+      callback: EventHandler<
           AttachmentType,
           ChannelType,
           CommandType,
@@ -1017,17 +993,41 @@ export class StreamChat<
           MessageType,
           ReactionType,
           UserType
-        >
-      | string,
-    callbackOrNothing?: EventHandler<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
+          >,
+  ): void;
+  off(
+      eventType: string,
+      callback: EventHandler<
+          AttachmentType,
+          ChannelType,
+          CommandType,
+          EventType,
+          MessageType,
+          ReactionType,
+          UserType
+          >,
+  ): void;
+  off(
+      callbackOrString:
+          | EventHandler<
+          AttachmentType,
+          ChannelType,
+          CommandType,
+          EventType,
+          MessageType,
+          ReactionType,
+          UserType
+          >
+          | string,
+      callbackOrNothing?: EventHandler<
+          AttachmentType,
+          ChannelType,
+          CommandType,
+          EventType,
+          MessageType,
+          ReactionType,
+          UserType
+          >,
   ) {
     const key = callbackOrNothing ? (callbackOrString as string) : 'all';
     const valid = isValidEventType(key);
@@ -1035,16 +1035,16 @@ export class StreamChat<
       throw Error(`Invalid event type ${key}`);
     }
     const callback = callbackOrNothing
-      ? callbackOrNothing
-      : (callbackOrString as EventHandler<
-          AttachmentType,
-          ChannelType,
-          CommandType,
-          EventType,
-          MessageType,
-          ReactionType,
-          UserType
-        >);
+        ? callbackOrNothing
+        : (callbackOrString as EventHandler<
+            AttachmentType,
+            ChannelType,
+            CommandType,
+            EventType,
+            MessageType,
+            ReactionType,
+            UserType
+            >);
     if (!(key in this.listeners)) {
       this.listeners[key] = [];
     }
@@ -1056,12 +1056,12 @@ export class StreamChat<
   }
 
   _logApiRequest(
-    type: string,
-    url: string,
-    data: unknown,
-    config: AxiosRequestConfig & {
-      config?: AxiosRequestConfig & { maxBodyLength?: number };
-    },
+      type: string,
+      url: string,
+      data: unknown,
+      config: AxiosRequestConfig & {
+        config?: AxiosRequestConfig & { maxBodyLength?: number };
+      },
   ) {
     this.logger('info', `client: ${type} - Request - ${url}`, {
       tags: ['api', 'api_request', 'client'],
@@ -1073,13 +1073,13 @@ export class StreamChat<
 
   _logApiResponse<T>(type: string, url: string, response: AxiosResponse<T>) {
     this.logger(
-      'info',
-      `client:${type} - Response - url: ${url} > status ${response.status}`,
-      {
-        tags: ['api', 'api_response', 'client'],
-        url,
-        response,
-      },
+        'info',
+        `client:${type} - Response - url: ${url} > status ${response.status}`,
+        {
+          tags: ['api', 'api_response', 'client'],
+          url,
+          response,
+        },
     );
   }
 
@@ -1092,12 +1092,12 @@ export class StreamChat<
   }
 
   doAxiosRequest = async <T>(
-    type: string,
-    url: string,
-    data?: unknown,
-    options: AxiosRequestConfig & {
-      config?: AxiosRequestConfig & { maxBodyLength?: number };
-    } = {},
+      type: string,
+      url: string,
+      data?: unknown,
+      options: AxiosRequestConfig & {
+        config?: AxiosRequestConfig & { maxBodyLength?: number };
+      } = {},
   ): Promise<T> => {
     await this.tokenManager.tokenReady();
     const requestConfig = this._enrichAxiosOptions(options);
@@ -1134,8 +1134,8 @@ export class StreamChat<
       this.consecutiveFailures += 1;
       if (e.response) {
         if (
-          e.response.data.code === chatCodes.TOKEN_EXPIRED &&
-          !this.tokenManager.isStatic()
+            e.response.data.code === chatCodes.TOKEN_EXPIRED &&
+            !this.tokenManager.isStatic()
         ) {
           if (this.consecutiveFailures > 1) {
             await sleep(retryInterval(this.consecutiveFailures));
@@ -1171,11 +1171,11 @@ export class StreamChat<
   }
 
   sendFile(
-    url: string,
-    uri: string | NodeJS.ReadableStream | Buffer | File,
-    name?: string,
-    contentType?: string,
-    user?: UserResponse<UserType>,
+      url: string,
+      uri: string | NodeJS.ReadableStream | Buffer | File,
+      name?: string,
+      contentType?: string,
+      user?: UserResponse<UserType>,
   ) {
     const data = addFileToFormData(uri, name, contentType);
     if (user != null) data.append('user', JSON.stringify(user));
@@ -1195,7 +1195,7 @@ export class StreamChat<
     err = new Error(`StreamChat error HTTP code: ${response.status}`);
     if (response.data && response.data.code) {
       err = new Error(
-        `StreamChat error code ${response.data.code}: ${response.data.message}`,
+          `StreamChat error code ${response.data.code}: ${response.data.message}`,
       );
       err.code = response.data.code;
     }
@@ -1213,15 +1213,15 @@ export class StreamChat<
   }
 
   dispatchEvent = (
-    event: Event<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
+      event: Event<
+          AttachmentType,
+          ChannelType,
+          CommandType,
+          EventType,
+          MessageType,
+          ReactionType,
+          UserType
+          >,
   ) => {
     // client event handlers
     const postListenerCallbacks = this._handleClientEvent(event);
@@ -1246,14 +1246,14 @@ export class StreamChat<
     // dispatch the event to the channel listeners
     const jsonString = messageEvent.data as string;
     const event = JSON.parse(jsonString) as Event<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >;
+        AttachmentType,
+        ChannelType,
+        CommandType,
+        EventType,
+        MessageType,
+        ReactionType,
+        UserType
+        >;
     event.received_at = new Date();
     this.dispatchEvent(event);
   };
@@ -1339,15 +1339,15 @@ export class StreamChat<
    * @param {Event} event
    */
   _handleUserEvent = (
-    event: Event<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
+      event: Event<
+          AttachmentType,
+          ChannelType,
+          CommandType,
+          EventType,
+          MessageType,
+          ReactionType,
+          UserType
+          >,
   ) => {
     if (!event.user) {
       return;
@@ -1390,40 +1390,40 @@ export class StreamChat<
     }
 
     if (
-      event.type === 'user.deleted' &&
-      event.user.deleted_at &&
-      (event.mark_messages_deleted || event.hard_delete)
+        event.type === 'user.deleted' &&
+        event.user.deleted_at &&
+        (event.mark_messages_deleted || event.hard_delete)
     ) {
       this._deleteUserMessageReference(event.user, event.hard_delete);
     }
   };
 
   _handleClientEvent(
-    event: Event<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
+      event: Event<
+          AttachmentType,
+          ChannelType,
+          CommandType,
+          EventType,
+          MessageType,
+          ReactionType,
+          UserType
+          >,
   ) {
     const client = this;
     const postListenerCallbacks = [];
     this.logger(
-      'info',
-      `client:_handleClientEvent - Received event of type { ${event.type} }`,
-      {
-        tags: ['event', 'client'],
-        event,
-      },
+        'info',
+        `client:_handleClientEvent - Received event of type { ${event.type} }`,
+        {
+          tags: ['event', 'client'],
+          event,
+        },
     );
 
     if (
-      event.type === 'user.presence.changed' ||
-      event.type === 'user.updated' ||
-      event.type === 'user.deleted'
+        event.type === 'user.presence.changed' ||
+        event.type === 'user.updated' ||
+        event.type === 'user.deleted'
     ) {
       this._handleUserEvent(event);
     }
@@ -1444,10 +1444,10 @@ export class StreamChat<
       const nextMutedChannelIds: string[] = [];
 
       this.mutedChannels.forEach(
-        (mute) => mute.channel && currentMutedChannelIds.push(mute.channel.cid),
+          (mute) => mute.channel && currentMutedChannelIds.push(mute.channel.cid),
       );
       event.me.channel_mutes.forEach(
-        (mute) => mute.channel && nextMutedChannelIds.push(mute.channel.cid),
+          (mute) => mute.channel && nextMutedChannelIds.push(mute.channel.cid),
       );
 
       /** Set the unread count of un-muted channels to 0, which is the behaviour of backend */
@@ -1465,9 +1465,9 @@ export class StreamChat<
     }
 
     if (
-      (event.type === 'channel.deleted' ||
-        event.type === 'notification.channel_deleted') &&
-      event.cid
+        (event.type === 'channel.deleted' ||
+            event.type === 'notification.channel_deleted') &&
+        event.cid
     ) {
       client.state.deleteAllChannelReference(event.cid);
       this.activeChannels[event.cid]?._disconnect();
@@ -1489,8 +1489,8 @@ export class StreamChat<
       if (mute.channel?.cid === cid) {
         muteStatus = {
           muted: mute.expires
-            ? new Date(mute.expires).getTime() > new Date().getTime()
-            : true,
+              ? new Date(mute.expires).getTime() > new Date().getTime()
+              : true,
           createdAt: mute.created_at ? new Date(mute.created_at) : new Date(),
           expiresAt: mute.expires ? new Date(mute.expires) : null,
         };
@@ -1510,21 +1510,7 @@ export class StreamChat<
   }
 
   _callClientListeners = (
-    event: Event<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
-  ) => {
-    const client = this;
-    // gather and call the listeners
-    const listeners: Array<
-      (
-        event: Event<
+      event: Event<
           AttachmentType,
           ChannelType,
           CommandType,
@@ -1532,9 +1518,23 @@ export class StreamChat<
           MessageType,
           ReactionType,
           UserType
-        >,
-      ) => void
-    > = [];
+          >,
+  ) => {
+    const client = this;
+    // gather and call the listeners
+    const listeners: Array<
+        (
+            event: Event<
+                AttachmentType,
+                ChannelType,
+                CommandType,
+                EventType,
+                MessageType,
+                ReactionType,
+                UserType
+                >,
+        ) => void
+        > = [];
     if (client.listeners.all) {
       listeners.push(...client.listeners.all);
     }
@@ -1550,26 +1550,26 @@ export class StreamChat<
 
   recoverState = async () => {
     this.logger(
-      'info',
-      `client:recoverState() - Start of recoverState with connectionID ${this.wsConnection?.connectionID}`,
-      {
-        tags: ['connection'],
-      },
+        'info',
+        `client:recoverState() - Start of recoverState with connectionID ${this.wsConnection?.connectionID}`,
+        {
+          tags: ['connection'],
+        },
     );
 
     const cids = Object.keys(this.activeChannels);
     if (cids.length && this.recoverStateOnReconnect) {
       this.logger(
-        'info',
-        `client:recoverState() - Start the querying of ${cids.length} channels`,
-        { tags: ['connection', 'client'] },
+          'info',
+          `client:recoverState() - Start the querying of ${cids.length} channels`,
+          { tags: ['connection', 'client'] },
       );
 
       await this.queryChannels(
-        { cid: { $in: cids } } as ChannelFilters<ChannelType, CommandType, UserType>,
-        { last_message_at: -1 },
-        { limit: 30 },
-        true,
+          { cid: { $in: cids } } as ChannelFilters<ChannelType, CommandType, UserType>,
+          { last_message_at: -1 },
+          { limit: 30 },
+          true,
       );
 
       this.logger('info', 'client:recoverState() - Querying channels finished', {
@@ -1598,7 +1598,7 @@ export class StreamChat<
 
     if (client.userID == null || this._user == null) {
       throw Error(
-        'Call connectUser or connectAnonymousUser before starting the connection',
+          'Call connectUser or connectAnonymousUser before starting the connection',
       );
     }
 
@@ -1654,9 +1654,9 @@ export class StreamChat<
    * @return {Promise<APIResponse & { users: Array<UserResponse<UserType>> }>} User Query Response
    */
   async queryUsers(
-    filterConditions: UserFilters<UserType>,
-    sort: UserSort<UserType> = [],
-    options: UserOptions = {},
+      filterConditions: UserFilters<UserType>,
+      sort: UserSort<UserType> = [],
+      options: UserOptions = {},
   ) {
     const defaultOptions = {
       presence: false,
@@ -1671,10 +1671,10 @@ export class StreamChat<
 
     // Return a list of users
     const data = await this.get<
-      APIResponse & {
-        users: Array<UserResponse<UserType>>;
-      }
-    >(this.baseURL + '/users', {
+        APIResponse & {
+      users: Array<UserResponse<UserType>>;
+    }
+        >(this.baseURL + '/users', {
       payload: {
         filter_conditions: filterConditions,
         sort: normalizeQuerySort(sort),
@@ -1698,20 +1698,20 @@ export class StreamChat<
    * @return {Promise<BannedUsersResponse<ChannelType, CommandType, UserType>>} Ban Query Response
    */
   async queryBannedUsers(
-    filterConditions: BannedUsersFilters = {},
-    sort: BannedUsersSort = [],
-    options: BannedUsersPaginationOptions = {},
+      filterConditions: BannedUsersFilters = {},
+      sort: BannedUsersSort = [],
+      options: BannedUsersPaginationOptions = {},
   ) {
     // Return a list of user bans
     return await this.get<BannedUsersResponse<ChannelType, CommandType, UserType>>(
-      this.baseURL + '/query_banned_users',
-      {
-        payload: {
-          filter_conditions: filterConditions,
-          sort: normalizeQuerySort(sort),
-          ...options,
+        this.baseURL + '/query_banned_users',
+        {
+          payload: {
+            filter_conditions: filterConditions,
+            sort: normalizeQuerySort(sort),
+            ...options,
+          },
         },
-      },
     );
   }
 
@@ -1724,18 +1724,18 @@ export class StreamChat<
    * @return {Promise<MessageFlagsResponse<ChannelType, CommandType, UserType>>} Message Flags Response
    */
   async queryMessageFlags(
-    filterConditions: MessageFlagsFilters = {},
-    options: MessageFlagsPaginationOptions = {},
+      filterConditions: MessageFlagsFilters = {},
+      options: MessageFlagsPaginationOptions = {},
   ) {
     // Return a list of message flags
     return await this.get<MessageFlagsResponse<ChannelType, CommandType, UserType>>(
-      this.baseURL + '/moderation/flags/message',
-      {
-        payload: {
-          filter_conditions: filterConditions,
-          ...options,
+        this.baseURL + '/moderation/flags/message',
+        {
+          payload: {
+            filter_conditions: filterConditions,
+            ...options,
+          },
         },
-      },
     );
   }
 
@@ -1747,20 +1747,27 @@ export class StreamChat<
    *
    * @return {Promise<APIResponse & { channels: Array<ChannelAPIResponse<AttachmentType,ChannelType,CommandType,MessageType,ReactionType,UserType>>}> } search channels response
    */
-  async getLocalChannelData(stateOptions: ChannelStateOptions = {}) {
+  async getLocalChannelData(data: {
+    channels: ChannelAPIResponse<
+        AttachmentType,
+        ChannelType,
+        CommandType,
+        MessageType,
+        ReactionType,
+        UserType
+        >[];
+  }, stateOptions: ChannelStateOptions = {}) {
     const { skipInitialization } = stateOptions;
 
-    const localStorageChannel = (await AsyncStorage.getItem('@FIRST_CHANNEL')) || '';
-    const data = JSON.parse(localStorageChannel);
     const channels: Channel<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >[] = [];
+        AttachmentType,
+        ChannelType,
+        CommandType,
+        EventType,
+        MessageType,
+        ReactionType,
+        UserType
+        >[] = [];
 
     // update our cache of the configs
     for (const channelState of data.channels) {
@@ -1781,6 +1788,9 @@ export class StreamChat<
 
       channels.push(c);
     }
+
+    channels.forEach((channel) => channel.state.setIsUpToDate(true));
+
     return channels;
   }
 
@@ -1798,11 +1808,11 @@ export class StreamChat<
    * @return {Promise<APIResponse & { channels: Array<ChannelAPIResponse<AttachmentType,ChannelType,CommandType,MessageType,ReactionType,UserType>>}> } search channels response
    */
   async queryChannels(
-    filterConditions: ChannelFilters<ChannelType, CommandType, UserType>,
-    sort: ChannelSort<ChannelType> = [],
-    options: ChannelOptions = {},
-    firstStage = true,
-    stateOptions: ChannelStateOptions = {},
+      filterConditions: ChannelFilters<ChannelType, CommandType, UserType>,
+      sort: ChannelSort<ChannelType> = [],
+      options: ChannelOptions = {},
+      firstStage = true,
+      stateOptions: ChannelStateOptions = {},
   ) {
     const { skipInitialization } = stateOptions;
     const defaultOptions: ChannelOptions = {
@@ -1828,13 +1838,13 @@ export class StreamChat<
 
     const data = await this.post<{
       channels: ChannelAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >[];
+          AttachmentType,
+          ChannelType,
+          CommandType,
+          MessageType,
+          ReactionType,
+          UserType
+          >[];
     }>(this.baseURL + '/channels', payload);
 
     if (firstStage) {
@@ -1842,14 +1852,14 @@ export class StreamChat<
     }
 
     const channels: Channel<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >[] = [];
+        AttachmentType,
+        ChannelType,
+        CommandType,
+        EventType,
+        MessageType,
+        ReactionType,
+        UserType
+        >[] = [];
 
     // update our cache of the configs
     for (const channelState of data.channels) {
@@ -1883,35 +1893,35 @@ export class StreamChat<
    * @return {Promise<SearchAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} search messages response
    */
   async search(
-    filterConditions: ChannelFilters<ChannelType, CommandType, UserType>,
-    query:
-      | string
-      | MessageFilters<
+      filterConditions: ChannelFilters<ChannelType, CommandType, UserType>,
+      query:
+          | string
+          | MessageFilters<
           AttachmentType,
           ChannelType,
           CommandType,
           MessageType,
           ReactionType,
           UserType
-        >,
-    options: SearchOptions<MessageType> = {},
+          >,
+      options: SearchOptions<MessageType> = {},
   ) {
     if (options.offset && (options.sort || options.next)) {
       throw Error(`Cannot specify offset with sort or next parameters`);
     }
     const payload: SearchPayload<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      MessageType,
-      ReactionType,
-      UserType
-    > = {
+        AttachmentType,
+        ChannelType,
+        CommandType,
+        MessageType,
+        ReactionType,
+        UserType
+        > = {
       filter_conditions: filterConditions,
       ...options,
       sort: options.sort
-        ? normalizeQuerySort<SearchMessageSortBase<MessageType>>(options.sort)
-        : undefined,
+          ? normalizeQuerySort<SearchMessageSortBase<MessageType>>(options.sort)
+          : undefined,
     };
     if (typeof query === 'string') {
       payload.query = query;
@@ -1925,15 +1935,15 @@ export class StreamChat<
     await this.setUserPromise;
 
     return await this.get<
-      SearchAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(this.baseURL + '/search', {
+        SearchAPIResponse<
+            AttachmentType,
+            ChannelType,
+            CommandType,
+            MessageType,
+            ReactionType,
+            UserType
+            >
+        >(this.baseURL + '/search', {
       payload,
     });
   }
@@ -1979,8 +1989,8 @@ export class StreamChat<
    */
   async getDevices(userID?: string) {
     return await this.get<APIResponse & { devices?: Device<UserType>[] }>(
-      this.baseURL + '/devices',
-      userID ? { user_id: userID } : {},
+        this.baseURL + '/devices',
+        userID ? { user_id: userID } : {},
     );
   }
 
@@ -2023,14 +2033,14 @@ export class StreamChat<
   }
 
   _addChannelConfig(
-    channelState: ChannelAPIResponse<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
+      channelState: ChannelAPIResponse<
+          AttachmentType,
+          ChannelType,
+          CommandType,
+          MessageType,
+          ReactionType,
+          UserType
+          >,
   ) {
     this.configs[channelState.channel.type] = channelState.channel.config;
   }
@@ -2050,34 +2060,34 @@ export class StreamChat<
    * @return {channel} The channel object, initialize it using channel.watch()
    */
   channel(
-    channelType: string,
-    channelID?: string | null,
-    custom?: ChannelData<ChannelType>,
+      channelType: string,
+      channelID?: string | null,
+      custom?: ChannelData<ChannelType>,
   ): Channel<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    EventType,
-    MessageType,
-    ReactionType,
-    UserType
-  >;
+      AttachmentType,
+      ChannelType,
+      CommandType,
+      EventType,
+      MessageType,
+      ReactionType,
+      UserType
+      >;
   channel(
-    channelType: string,
-    custom?: ChannelData<ChannelType>,
+      channelType: string,
+      custom?: ChannelData<ChannelType>,
   ): Channel<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    EventType,
-    MessageType,
-    ReactionType,
-    UserType
-  >;
+      AttachmentType,
+      ChannelType,
+      CommandType,
+      EventType,
+      MessageType,
+      ReactionType,
+      UserType
+      >;
   channel(
-    channelType: string,
-    channelIDOrCustom?: string | ChannelData<ChannelType> | null,
-    custom: ChannelData<ChannelType> = {} as ChannelData<ChannelType>,
+      channelType: string,
+      channelIDOrCustom?: string | ChannelData<ChannelType> | null,
+      custom: ChannelData<ChannelType> = {} as ChannelData<ChannelType>,
   ) {
     if (!this.userID && !this._isUsingServerAuth()) {
       throw Error('Call connectUser or connectAnonymousUser before creating a channel');
@@ -2092,14 +2102,14 @@ export class StreamChat<
     // support channel("messaging", "", {options})
     if (channelIDOrCustom == null || channelIDOrCustom === '') {
       return new Channel<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        EventType,
-        MessageType,
-        ReactionType,
-        UserType
-      >(this, channelType, undefined, custom);
+          AttachmentType,
+          ChannelType,
+          CommandType,
+          EventType,
+          MessageType,
+          ReactionType,
+          UserType
+          >(this, channelType, undefined, custom);
     }
 
     // support channel("messaging", {options})
@@ -2153,8 +2163,8 @@ export class StreamChat<
 
       if (key.indexOf(`${channelType}:!members-`) === 0) {
         const membersStrInExistingChannel = Object.keys(channel.state.members)
-          .sort()
-          .join(',');
+            .sort()
+            .join(',');
         if (membersStrInExistingChannel === membersStr) {
           return channel;
         }
@@ -2162,14 +2172,14 @@ export class StreamChat<
     }
 
     const channel = new Channel<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >(this, channelType, undefined, custom);
+        AttachmentType,
+        ChannelType,
+        CommandType,
+        EventType,
+        MessageType,
+        ReactionType,
+        UserType
+        >(this, channelType, undefined, custom);
 
     // For the time being set the key as membersStr, since we don't know the cid yet.
     // In channel.query, we will replace it with 'cid'.
@@ -2194,9 +2204,9 @@ export class StreamChat<
    * @return {channel} The channel object, initialize it using channel.watch()
    */
   getChannelById = (
-    channelType: string,
-    channelID: string,
-    custom: ChannelData<ChannelType>,
+      channelType: string,
+      channelID: string,
+      custom: ChannelData<ChannelType>,
   ) => {
     if (typeof channelID === 'string' && ~channelID.indexOf(':')) {
       throw Error(`Invalid channel id ${channelID}, can't contain the : character`);
@@ -2213,14 +2223,14 @@ export class StreamChat<
       return channel;
     }
     const channel = new Channel<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >(this, channelType, channelID, custom);
+        AttachmentType,
+        ChannelType,
+        CommandType,
+        EventType,
+        MessageType,
+        ReactionType,
+        UserType
+        >(this, channelType, channelID, custom);
     this.activeChannels[channel.cid] = channel;
 
     return channel;
@@ -2255,10 +2265,10 @@ export class StreamChat<
     }
 
     return await this.post<
-      APIResponse & {
-        users: { [key: string]: UserResponse<UserType> };
-      }
-    >(this.baseURL + '/users', {
+        APIResponse & {
+      users: { [key: string]: UserResponse<UserType> };
+    }
+        >(this.baseURL + '/users', {
       users: userMap,
     });
   }
@@ -2309,69 +2319,69 @@ export class StreamChat<
     }
 
     return await this.patch<
-      APIResponse & {
-        users: { [key: string]: UserResponse<UserType> };
-      }
-    >(this.baseURL + '/users', {
+        APIResponse & {
+      users: { [key: string]: UserResponse<UserType> };
+    }
+        >(this.baseURL + '/users', {
       users,
     });
   }
 
   async deleteUser(
-    userID: string,
-    params?: {
-      delete_conversation_channels?: boolean;
-      hard_delete?: boolean;
-      mark_messages_deleted?: boolean;
-    },
+      userID: string,
+      params?: {
+        delete_conversation_channels?: boolean;
+        hard_delete?: boolean;
+        mark_messages_deleted?: boolean;
+      },
   ) {
     return await this.delete<
-      APIResponse & {
-        user: UserResponse<UserType>;
-      }
-    >(this.baseURL + `/users/${userID}`, params);
+        APIResponse & {
+      user: UserResponse<UserType>;
+    }
+        >(this.baseURL + `/users/${userID}`, params);
   }
 
   async reactivateUser(
-    userID: string,
-    options?: { created_by_id?: string; name?: string; restore_messages?: boolean },
+      userID: string,
+      options?: { created_by_id?: string; name?: string; restore_messages?: boolean },
   ) {
     return await this.post<
-      APIResponse & {
-        user: UserResponse<UserType>;
-      }
-    >(this.baseURL + `/users/${userID}/reactivate`, {
+        APIResponse & {
+      user: UserResponse<UserType>;
+    }
+        >(this.baseURL + `/users/${userID}/reactivate`, {
       ...options,
     });
   }
 
   async deactivateUser(
-    userID: string,
-    options?: { created_by_id?: string; mark_messages_deleted?: boolean },
+      userID: string,
+      options?: { created_by_id?: string; mark_messages_deleted?: boolean },
   ) {
     return await this.post<APIResponse & { user: UserResponse<UserType> }>(
-      this.baseURL + `/users/${userID}/deactivate`,
-      {
-        ...options,
-      },
+        this.baseURL + `/users/${userID}/deactivate`,
+        {
+          ...options,
+        },
     );
   }
 
   async exportUser(userID: string, options?: Record<string, string>) {
     return await this.get<
-      APIResponse & {
-        messages: MessageResponse<
+        APIResponse & {
+      messages: MessageResponse<
           AttachmentType,
           ChannelType,
           CommandType,
           MessageType,
           ReactionType,
           UserType
-        >[];
-        reactions: ReactionResponse<ReactionType, UserType>[];
-        user: UserResponse<UserType>;
-      }
-    >(this.baseURL + `/users/${userID}/export`, {
+          >[];
+      reactions: ReactionResponse<ReactionType, UserType>[];
+      user: UserResponse<UserType>;
+    }
+        >(this.baseURL + `/users/${userID}/export`, {
       ...options,
     });
   }
@@ -2387,14 +2397,14 @@ export class StreamChat<
       options.banned_by_id = options.user_id;
       delete options.user_id;
       console.warn(
-        "banUser: 'user_id' is deprecated, please consider switching to 'banned_by_id'",
+          "banUser: 'user_id' is deprecated, please consider switching to 'banned_by_id'",
       );
     }
     if (options?.user !== undefined) {
       options.banned_by = options.user;
       delete options.user;
       console.warn(
-        "banUser: 'user' is deprecated, please consider switching to 'banned_by'",
+          "banUser: 'user' is deprecated, please consider switching to 'banned_by'",
       );
     }
     return await this.post<APIResponse>(this.baseURL + '/moderation/ban', {
@@ -2450,17 +2460,17 @@ export class StreamChat<
    * @returns {Promise<MuteUserResponse<ChannelType, CommandType, UserType>>}
    */
   async muteUser(
-    targetID: string,
-    userID?: string,
-    options: MuteUserOptions<UserType> = {},
+      targetID: string,
+      userID?: string,
+      options: MuteUserOptions<UserType> = {},
   ) {
     return await this.post<MuteUserResponse<ChannelType, CommandType, UserType>>(
-      this.baseURL + '/moderation/mute',
-      {
-        target_id: targetID,
-        ...(userID ? { user_id: userID } : {}),
-        ...options,
-      },
+        this.baseURL + '/moderation/mute',
+        {
+          target_id: targetID,
+          ...(userID ? { user_id: userID } : {}),
+          ...options,
+        },
     );
   }
 
@@ -2501,11 +2511,11 @@ export class StreamChat<
    */
   async flagMessage(targetMessageID: string, options: { user_id?: string } = {}) {
     return await this.post<FlagMessageResponse<UserType>>(
-      this.baseURL + '/moderation/flag',
-      {
-        target_message_id: targetMessageID,
-        ...options,
-      },
+        this.baseURL + '/moderation/flag',
+        {
+          target_message_id: targetMessageID,
+          ...options,
+        },
     );
   }
 
@@ -2517,11 +2527,11 @@ export class StreamChat<
    */
   async flagUser(targetID: string, options: { user_id?: string } = {}) {
     return await this.post<FlagUserResponse<UserType>>(
-      this.baseURL + '/moderation/flag',
-      {
-        target_user_id: targetID,
-        ...options,
-      },
+        this.baseURL + '/moderation/flag',
+        {
+          target_user_id: targetID,
+          ...options,
+        },
     );
   }
 
@@ -2533,11 +2543,11 @@ export class StreamChat<
    */
   async unflagMessage(targetMessageID: string, options: { user_id?: string } = {}) {
     return await this.post<FlagMessageResponse<UserType>>(
-      this.baseURL + '/moderation/unflag',
-      {
-        target_message_id: targetMessageID,
-        ...options,
-      },
+        this.baseURL + '/moderation/unflag',
+        {
+          target_message_id: targetMessageID,
+          ...options,
+        },
     );
   }
 
@@ -2549,11 +2559,11 @@ export class StreamChat<
    */
   async unflagUser(targetID: string, options: { user_id?: string } = {}) {
     return await this.post<FlagUserResponse<UserType>>(
-      this.baseURL + '/moderation/unflag',
-      {
-        target_user_id: targetID,
-        ...options,
-      },
+        this.baseURL + '/moderation/unflag',
+        {
+          target_user_id: targetID,
+          ...options,
+        },
     );
   }
 
@@ -2571,8 +2581,8 @@ export class StreamChat<
 
   createCommand(data: CreateCommandOptions<CommandType>) {
     return this.post<CreateCommandResponse<CommandType>>(
-      this.baseURL + '/commands',
-      data,
+        this.baseURL + '/commands',
+        data,
     );
   }
 
@@ -2582,14 +2592,14 @@ export class StreamChat<
 
   updateCommand(name: string, data: UpdateCommandOptions<CommandType>) {
     return this.put<UpdateCommandResponse<CommandType>>(
-      this.baseURL + `/commands/${name}`,
-      data,
+        this.baseURL + `/commands/${name}`,
+        data,
     );
   }
 
   deleteCommand(name: string) {
     return this.delete<DeleteCommandResponse<CommandType>>(
-      this.baseURL + `/commands/${name}`,
+        this.baseURL + `/commands/${name}`,
     );
   }
 
@@ -2600,21 +2610,21 @@ export class StreamChat<
   createChannelType(data: CreateChannelOptions<CommandType>) {
     const channelData = Object.assign({}, { commands: ['all'] }, data);
     return this.post<CreateChannelResponse<CommandType>>(
-      this.baseURL + '/channeltypes',
-      channelData,
+        this.baseURL + '/channeltypes',
+        channelData,
     );
   }
 
   getChannelType(channelType: string) {
     return this.get<GetChannelTypeResponse<CommandType>>(
-      this.baseURL + `/channeltypes/${channelType}`,
+        this.baseURL + `/channeltypes/${channelType}`,
     );
   }
 
   updateChannelType(channelType: string, data: UpdateChannelOptions<CommandType>) {
     return this.put<UpdateChannelResponse<CommandType>>(
-      this.baseURL + `/channeltypes/${channelType}`,
-      data,
+        this.baseURL + `/channeltypes/${channelType}`,
+        data,
     );
   }
 
@@ -2636,16 +2646,16 @@ export class StreamChat<
    */
   async translateMessage(messageId: string, language: string) {
     return await this.post<
-      APIResponse &
+        APIResponse &
         MessageResponse<
-          AttachmentType,
-          ChannelType,
-          CommandType,
-          MessageType,
-          ReactionType,
-          UserType
-        >
-    >(this.baseURL + `/messages/${messageId}/translate`, {
+            AttachmentType,
+            ChannelType,
+            CommandType,
+            MessageType,
+            ReactionType,
+            UserType
+            >
+        >(this.baseURL + `/messages/${messageId}/translate`, {
       language,
     });
   }
@@ -2674,8 +2684,8 @@ export class StreamChat<
    * @param {string} errorText error message to report in case of message id absence
    */
   _validateAndGetMessageId(
-    messageOrMessageId: string | { id: string },
-    errorText: string,
+      messageOrMessageId: string | { id: string },
+      errorText: string,
   ) {
     let messageId: string;
     if (typeof messageOrMessageId === 'string') {
@@ -2696,23 +2706,23 @@ export class StreamChat<
    * @param {string | { id: string }} [userId]
    */
   pinMessage(
-    messageOrMessageId: string | { id: string },
-    timeoutOrExpirationDate?: null | number | string | Date,
-    userId?: string | { id: string },
+      messageOrMessageId: string | { id: string },
+      timeoutOrExpirationDate?: null | number | string | Date,
+      userId?: string | { id: string },
   ) {
     const messageId = this._validateAndGetMessageId(
-      messageOrMessageId,
-      'Please specify the message id when calling unpinMessage',
+        messageOrMessageId,
+        'Please specify the message id when calling unpinMessage',
     );
     return this.partialUpdateMessage(
-      messageId,
-      {
-        set: {
-          pinned: true,
-          pin_expires: this._normalizeExpiration(timeoutOrExpirationDate),
+        messageId,
+        {
+          set: {
+            pinned: true,
+            pin_expires: this._normalizeExpiration(timeoutOrExpirationDate),
+          },
         },
-      },
-      userId,
+        userId,
     );
   }
 
@@ -2722,21 +2732,21 @@ export class StreamChat<
    * @param {string | { id: string }} [userId]
    */
   unpinMessage(
-    messageOrMessageId: string | { id: string },
-    userId?: string | { id: string },
+      messageOrMessageId: string | { id: string },
+      userId?: string | { id: string },
   ) {
     const messageId = this._validateAndGetMessageId(
-      messageOrMessageId,
-      'Please specify the message id when calling unpinMessage',
+        messageOrMessageId,
+        'Please specify the message id when calling unpinMessage',
     );
     return this.partialUpdateMessage(
-      messageId,
-      {
-        set: {
-          pinned: false,
+        messageId,
+        {
+          set: {
+            pinned: false,
+          },
         },
-      },
-      userId,
+        userId,
     );
   }
 
@@ -2749,15 +2759,15 @@ export class StreamChat<
    * @return {APIResponse & { message: MessageResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType> }} Response that includes the message
    */
   async updateMessage(
-    message: UpdatedMessage<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
-    userId?: string | { id: string },
+      message: UpdatedMessage<
+          AttachmentType,
+          ChannelType,
+          CommandType,
+          MessageType,
+          ReactionType,
+          UserType
+          >,
+      userId?: string | { id: string },
   ) {
     if (!message.id) {
       throw Error('Please specify the message id when calling updateMessage');
@@ -2767,18 +2777,18 @@ export class StreamChat<
     delete clonedMessage.id;
 
     const reservedMessageFields: Array<
-      | 'command'
-      | 'created_at'
-      | 'html'
-      | 'latest_reactions'
-      | 'own_reactions'
-      | 'reaction_counts'
-      | 'reply_count'
-      | 'type'
-      | 'updated_at'
-      | 'user'
-      | '__html'
-    > = [
+        | 'command'
+        | 'created_at'
+        | 'html'
+        | 'latest_reactions'
+        | 'own_reactions'
+        | 'reaction_counts'
+        | 'reply_count'
+        | 'type'
+        | 'updated_at'
+        | 'user'
+        | '__html'
+        > = [
       'command',
       'created_at',
       'html',
@@ -2811,24 +2821,24 @@ export class StreamChat<
      * SDK missed this conversion.
      */
     if (
-      Array.isArray(clonedMessage.mentioned_users) &&
-      !isString(clonedMessage.mentioned_users[0])
+        Array.isArray(clonedMessage.mentioned_users) &&
+        !isString(clonedMessage.mentioned_users[0])
     ) {
       clonedMessage.mentioned_users = clonedMessage.mentioned_users.map(
-        (mu) => ((mu as unknown) as UserResponse).id,
+          (mu) => ((mu as unknown) as UserResponse).id,
       );
     }
 
     return await this.post<
-      UpdateMessageAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(this.baseURL + `/messages/${message.id}`, {
+        UpdateMessageAPIResponse<
+            AttachmentType,
+            ChannelType,
+            CommandType,
+            MessageType,
+            ReactionType,
+            UserType
+            >
+        >(this.baseURL + `/messages/${message.id}`, {
       message: clonedMessage,
     });
   }
@@ -2845,9 +2855,9 @@ export class StreamChat<
    * @return {APIResponse & { message: MessageResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType> }} Response that includes the updated message
    */
   async partialUpdateMessage(
-    id: string,
-    partialMessageObject: PartialMessageUpdate<MessageType>,
-    userId?: string | { id: string },
+      id: string,
+      partialMessageObject: PartialMessageUpdate<MessageType>,
+      userId?: string | { id: string },
   ) {
     if (!id) {
       throw Error('Please specify the message id when calling partialUpdateMessage');
@@ -2857,15 +2867,15 @@ export class StreamChat<
       user = { id: userId };
     }
     return await this.put<
-      UpdateMessageAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(this.baseURL + `/messages/${id}`, {
+        UpdateMessageAPIResponse<
+            AttachmentType,
+            ChannelType,
+            CommandType,
+            MessageType,
+            ReactionType,
+            UserType
+            >
+        >(this.baseURL + `/messages/${id}`, {
       ...partialMessageObject,
       user,
     });
@@ -2877,40 +2887,40 @@ export class StreamChat<
       params = { hard: true };
     }
     return await this.delete<
-      APIResponse & {
-        message: MessageResponse<
+        APIResponse & {
+      message: MessageResponse<
           AttachmentType,
           ChannelType,
           CommandType,
           MessageType,
           ReactionType,
           UserType
-        >;
-      }
-    >(this.baseURL + `/messages/${messageID}`, params);
+          >;
+    }
+        >(this.baseURL + `/messages/${messageID}`, params);
   }
 
   async getMessage(messageID: string) {
     return await this.get<
-      APIResponse & {
-        message: MessageResponse<
+        APIResponse & {
+      message: MessageResponse<
           AttachmentType,
           ChannelType,
           CommandType,
           MessageType,
           ReactionType,
           UserType
-        >;
-      }
-    >(this.baseURL + `/messages/${messageID}`);
+          >;
+    }
+        >(this.baseURL + `/messages/${messageID}`);
   }
 
   getUserAgent() {
     return (
-      this.userAgent ||
-      `stream-chat-javascript-client-${this.node ? 'node' : 'browser'}-${
-        process.env.PKG_VERSION
-      }`
+        this.userAgent ||
+        `stream-chat-javascript-client-${this.node ? 'node' : 'browser'}-${
+            process.env.PKG_VERSION
+        }`
     );
   }
 
@@ -2924,11 +2934,11 @@ export class StreamChat<
   _isUsingServerAuth = () => !!this.secret;
 
   _enrichAxiosOptions(
-    options: AxiosRequestConfig & { config?: AxiosRequestConfig } = {
-      params: {},
-      headers: {},
-      config: {},
-    },
+      options: AxiosRequestConfig & { config?: AxiosRequestConfig } = {
+        params: {},
+        headers: {},
+        config: {},
+      },
   ) {
     const token = this._getToken();
 
@@ -3053,8 +3063,8 @@ export class StreamChat<
    */
   sync(channel_cids: string[], last_sync_at: string) {
     return this.post<
-      APIResponse & {
-        events: Event<
+        APIResponse & {
+      events: Event<
           AttachmentType,
           ChannelType,
           CommandType,
@@ -3062,9 +3072,9 @@ export class StreamChat<
           MessageType,
           ReactionType,
           UserType
-        >[];
-      }
-    >(`${this.baseURL}/sync`, {
+          >[];
+    }
+        >(`${this.baseURL}/sync`, {
       channel_cids,
       last_sync_at,
     });
@@ -3090,13 +3100,13 @@ export class StreamChat<
 
   listBlockLists() {
     return this.get<APIResponse & { blocklists: BlockListResponse[] }>(
-      `${this.baseURL}/blocklists`,
+        `${this.baseURL}/blocklists`,
     );
   }
 
   getBlockList(name: string) {
     return this.get<APIResponse & { blocklist: BlockListResponse }>(
-      `${this.baseURL}/blocklists/${name}`,
+        `${this.baseURL}/blocklists/${name}`,
     );
   }
 
@@ -3109,16 +3119,16 @@ export class StreamChat<
   }
 
   exportChannels(
-    request: Array<ExportChannelRequest>,
-    options: ExportChannelOptions = {},
+      request: Array<ExportChannelRequest>,
+      options: ExportChannelOptions = {},
   ) {
     const payload = {
       channels: request,
       ...options,
     };
     return this.post<APIResponse & ExportChannelResponse>(
-      `${this.baseURL}/export_channels`,
-      payload,
+        `${this.baseURL}/export_channels`,
+        payload,
     );
   }
 
@@ -3128,7 +3138,7 @@ export class StreamChat<
 
   getExportChannelStatus(id: string) {
     return this.get<APIResponse & ExportChannelStatusResponse>(
-      `${this.baseURL}/export_channels/${id}`,
+        `${this.baseURL}/export_channels/${id}`,
     );
   }
 
@@ -3141,8 +3151,8 @@ export class StreamChat<
    */
   async createSegment(params: SegmentData) {
     const { segment } = await this.post<{ segment: Segment }>(
-      this.baseURL + `/segments`,
-      { segment: params },
+        this.baseURL + `/segments`,
+        { segment: params },
     );
     return segment;
   }
@@ -3156,7 +3166,7 @@ export class StreamChat<
    */
   async getSegment(id: string) {
     const { segment } = await this.get<{ segment: Segment }>(
-      this.baseURL + `/segments/${id}`,
+        this.baseURL + `/segments/${id}`,
     );
     return segment;
   }
@@ -3169,8 +3179,8 @@ export class StreamChat<
    */
   async listSegments(options: { limit?: number; offset?: number }) {
     const { segments } = await this.get<{ segments: Segment[] }>(
-      this.baseURL + `/segments`,
-      options,
+        this.baseURL + `/segments`,
+        options,
     );
     return segments;
   }
@@ -3185,8 +3195,8 @@ export class StreamChat<
    */
   async updateSegment(id: string, params: Partial<SegmentData>) {
     const { segment } = await this.put<{ segment: Segment }>(
-      this.baseURL + `/segments/${id}`,
-      { segment: params },
+        this.baseURL + `/segments/${id}`,
+        { segment: params },
     );
     return segment;
   }
@@ -3211,8 +3221,8 @@ export class StreamChat<
    */
   async createCampaign(params: CampaignData) {
     const { campaign } = await this.post<{ campaign: Campaign }>(
-      this.baseURL + `/campaigns`,
-      { campaign: params },
+        this.baseURL + `/campaigns`,
+        { campaign: params },
     );
     return campaign;
   }
@@ -3226,7 +3236,7 @@ export class StreamChat<
    */
   async getCampaign(id: string) {
     const { campaign } = await this.get<{ campaign: Campaign }>(
-      this.baseURL + `/campaigns/${id}`,
+        this.baseURL + `/campaigns/${id}`,
     );
     return campaign;
   }
@@ -3239,8 +3249,8 @@ export class StreamChat<
    */
   async listCampaigns(options: { limit?: number; offset?: number }) {
     const { campaigns } = await this.get<{ campaigns: Campaign[] }>(
-      this.baseURL + `/campaigns`,
-      options,
+        this.baseURL + `/campaigns`,
+        options,
     );
     return campaigns;
   }
@@ -3255,8 +3265,8 @@ export class StreamChat<
    */
   async updateCampaign(id: string, params: Partial<CampaignData>) {
     const { campaign } = await this.put<{ campaign: Campaign }>(
-      this.baseURL + `/campaigns/${id}`,
-      { campaign: params },
+        this.baseURL + `/campaigns/${id}`,
+        { campaign: params },
     );
     return campaign;
   }
@@ -3283,8 +3293,8 @@ export class StreamChat<
   async scheduleCampaign(id: string, params: { sendAt: number }) {
     const { sendAt } = params;
     const { campaign } = await this.patch<{ campaign: Campaign }>(
-      this.baseURL + `/campaigns/${id}/schedule`,
-      { send_at: sendAt },
+        this.baseURL + `/campaigns/${id}/schedule`,
+        { send_at: sendAt },
     );
     return campaign;
   }
@@ -3298,7 +3308,7 @@ export class StreamChat<
    */
   async stopCampaign(id: string) {
     const { campaign } = await this.patch<{ campaign: Campaign }>(
-      this.baseURL + `/campaigns/${id}/stop`,
+        this.baseURL + `/campaigns/${id}/stop`,
     );
     return campaign;
   }
@@ -3312,7 +3322,7 @@ export class StreamChat<
    */
   async resumeCampaign(id: string) {
     const { campaign } = await this.patch<{ campaign: Campaign }>(
-      this.baseURL + `/campaigns/${id}/resume`,
+        this.baseURL + `/campaigns/${id}/resume`,
     );
     return campaign;
   }
@@ -3327,8 +3337,8 @@ export class StreamChat<
   async testCampaign(id: string, params: { users: string[] }) {
     const { users } = params;
     const { campaign } = await this.post<{ campaign: Campaign }>(
-      this.baseURL + `/campaigns/${id}/test`,
-      { users },
+        this.baseURL + `/campaigns/${id}/test`,
+        { users },
     );
     return campaign;
   }
