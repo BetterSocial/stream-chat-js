@@ -1,7 +1,24 @@
 import chai from 'chai';
-import { normalizeQuerySort } from '../../src/utils';
+import { axiosParamsSerializer, generateUUIDv4, normalizeQuerySort } from '../../src/utils';
+import sinon from 'sinon';
 
 const expect = chai.expect;
+
+describe('generateUUIDv4', () => {
+	beforeEach(() => {
+		sinon.restore();
+	});
+
+	it('generates a UUID manually when crypto is unavailable', () => {
+		sinon.spy(Math, 'pow');
+		sinon.spy(Math, 'random');
+		const uuid = generateUUIDv4();
+		expect(uuid).to.be.a('string');
+		expect(uuid.length).to.equal(36);
+		expect(Math.pow.calledWithMatch(2, 8)).to.be.true;
+		expect(Math.random.callCount).to.be.equal(16);
+	});
+});
 
 describe('test if sort is deterministic', () => {
 	it('test sort object', () => {
@@ -50,5 +67,35 @@ describe('test if sort is deterministic', () => {
 		expect(sort[2].direction).to.be.equal(1);
 		expect(sort[3].field).to.be.equal('deleted_at');
 		expect(sort[3].direction).to.be.equal(-1);
+	});
+});
+
+describe('axiosParamsSerializer', () => {
+	const testCases = [
+		{
+			input: {
+				a: 1,
+				b: 2,
+				c: null,
+				d: undefined,
+			},
+			output: 'a=1&b=2&c=null',
+		},
+		{
+			input: {
+				a: {
+					b: 1,
+					c: 2,
+					d: null,
+				},
+				b: [1, 2, 3],
+			},
+			output: 'a=%7B%22b%22%3A1%2C%22c%22%3A2%2C%22d%22%3Anull%7D&b=%5B1%2C2%2C3%5D',
+		},
+	];
+	it('should serialize params', () => {
+		for (const { input, output } of testCases) {
+			expect(axiosParamsSerializer(input)).to.equal(output);
+		}
 	});
 });

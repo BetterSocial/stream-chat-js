@@ -1,7 +1,8 @@
 const { v4: uuidv4 } = require('uuid');
 const utils = require('../utils');
+const { sleep } = require('../utils');
 
-async function cleanupBucketList(client, name) {
+async function cleanupBlockList(client, name) {
 	try {
 		await client.deleteBlockList(name); // cleanup for previous failed tests
 	} catch (err) {
@@ -39,7 +40,7 @@ async function shadowBan() {
 async function createBlockList() {
 	const name = 'FWord';
 	const client = utils.getTestClient(true);
-	await cleanupBucketList(client, name);
+	await cleanupBlockList(client, name);
 
 	const returnValue = await client.createBlockList({ name, words: ['F*!k'] });
 	await client.deleteBlockList(name);
@@ -52,6 +53,11 @@ async function createPermission() {
 		id: 'test-create-permission',
 		name: 'TestCreatePermission',
 		action: 'ReadChannel',
+		condition: {
+			'$subject.magic_custom_field': {
+				$eq: 'magic_custom_value',
+			},
+		},
 	});
 }
 
@@ -64,8 +70,8 @@ async function deleteBlockList() {
 	const name = 'FWord';
 	const name2 = 'SWord';
 	const client = await utils.getTestClient(true);
-	await cleanupBucketList(client, name);
-	await cleanupBucketList(client, name2);
+	await cleanupBlockList(client, name);
+	await cleanupBlockList(client, name2);
 
 	await client.createBlockList({ name, words: ['F*!k'] });
 	await client.createBlockList({ name: name2, words: ['S!*t'] });
@@ -81,7 +87,13 @@ async function deletePermission() {
 		id: 'test-delete-permission',
 		name: 'TestDeletePermission',
 		action: 'ReadChannel',
+		condition: {
+			'$subject.magic_custom_field': {
+				$eq: 'magic_custom_value',
+			},
+		},
 	});
+	await sleep(5000);
 	return await authClient.deletePermission('test-delete-permission');
 }
 
@@ -89,6 +101,7 @@ async function deleteRole() {
 	const name = uuidv4();
 	const authClient = await utils.getTestClient(true);
 	await authClient.createRole(name);
+	await sleep(2500);
 	return await authClient.deleteRole(name);
 }
 
@@ -170,7 +183,7 @@ async function flagUser() {
 async function getBlockList() {
 	const name = 'FWord';
 	const client = await utils.getTestClient(true);
-	await cleanupBucketList(client, name);
+	await cleanupBlockList(client, name);
 
 	await client.createBlockList({ name, words: ['F*!k'] });
 
@@ -185,7 +198,13 @@ async function getPermission() {
 		id: 'test-get-permission',
 		name: 'TestGetPermission',
 		action: 'ReadChannel',
+		condition: {
+			'$subject.magic_custom_field': {
+				$eq: 'magic_custom_value',
+			},
+		},
 	});
+	await sleep(2500);
 	return await authClient.getPermission('test-get-permission');
 }
 
@@ -201,18 +220,12 @@ async function listBlockLists() {
 
 async function listPermissions() {
 	const authClient = await utils.getTestClient(true);
-	await authClient.createPermission({
-		id: 'test-list-permissions',
-		name: 'TestListPermissions',
-		action: 'ReadChannel',
-	});
 	return await authClient.listPermissions();
 }
 
 async function listRoles() {
 	const authClient = await utils.getTestClient(true);
-	await authClient.createRole('TestListRole');
-	authClient.listRoles();
+	await authClient.listRoles();
 }
 
 async function muteUser() {
@@ -339,7 +352,7 @@ async function unmuteUser() {
 async function updateBlockList() {
 	const name = 'FWord';
 	const client = await utils.getTestClient(true);
-	await cleanupBucketList(client, name);
+	await cleanupBlockList(client, name);
 
 	await client.createBlockList({ name, words: ['F*!k'] });
 
@@ -356,10 +369,19 @@ async function updatePermission() {
 		id: 'test-update-permission',
 		name: 'TestUpdatePermission',
 		action: 'ReadChannel',
+		condition: {
+			'$subject.magic_custom_field': {
+				$eq: 'magic_custom_value',
+			},
+		},
 	});
+	await sleep(2500);
 	return await authClient.updatePermission('test-update-permission', {
 		name: 'TestUpdatePermissionUpdated',
 		action: 'DeleteChannel',
+		condition: {
+			'$subject.magic_custom_field': 'magic_custom_value',
+		},
 	});
 }
 

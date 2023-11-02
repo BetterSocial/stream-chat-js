@@ -65,5 +65,6 @@ typings/
 
 /.vscode
 /.idea
+.envrc
 
 test/typescript/data.*

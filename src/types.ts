@@ -1,4 +1,6 @@
-import { AxiosRequestConfig } from 'axios';
+import { AxiosRequestConfig, AxiosResponse } from 'axios';
+import { StableWSConnection } from './connection';
+import { EVENT_MAP } from './events';
 import { Role } from './permissions';
 
 /**
@@ -24,15 +26,34 @@ export type RequireAtLeastOne<T> = {
   [K in keyof T]-?: Required<Pick<T, K>> & Partial<Pick<T, Exclude<keyof T, K>>>;
 }[keyof T];
 
-export type RequireOnlyOne<T, Keys extends keyof T = keyof T> = Pick<
-  T,
-  Exclude<keyof T, Keys>
-> &
+export type RequireOnlyOne<T, Keys extends keyof T = keyof T> = Pick<T, Exclude<keyof T, Keys>> &
   {
     [K in Keys]-?: Required<Pick<T, K>> & Partial<Record<Exclude<Keys, K>, undefined>>;
   }[Keys];
 
-export type UnknownType = Record<string, unknown>;
+/* Unknown Record */
+export type UR = Record<string, unknown>;
+export type UnknownType = UR; //alias to avoid breaking change
+
+export type DefaultGenerics = {
+  attachmentType: UR;
+  channelType: UR;
+  commandType: LiteralStringForUnion;
+  eventType: UR;
+  messageType: UR;
+  reactionType: UR;
+  userType: UR;
+};
+
+export type ExtendableGenerics = {
+  attachmentType: UR;
+  channelType: UR;
+  commandType: string;
+  eventType: UR;
+  messageType: UR;
+  reactionType: UR;
+  userType: UR;
+};
 
 export type Unpacked<T> = T extends (infer U)[]
   ? U // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,25 +71,30 @@ export type APIResponse = {
   duration: string;
 };
 
-export type AppSettingsAPIResponse<
-  CommandType extends string = LiteralStringForUnion
-> = APIResponse & {
+export type AppSettingsAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
   app?: {
+    // TODO
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    call_types: any;
     channel_configs: Record<
       string,
       {
+        reminders: boolean;
         automod?: ChannelConfigAutomod;
         automod_behavior?: ChannelConfigAutomodBehavior;
+        automod_thresholds?: ChannelConfigAutomodThresholds;
         blocklist_behavior?: ChannelConfigAutomodBehavior;
-        commands?: CommandVariants<CommandType>[];
+        commands?: CommandVariants<StreamChatGenerics>[];
         connect_events?: boolean;
         created_at?: string;
         custom_events?: boolean;
+        mark_messages_pending?: boolean;
         max_message_length?: number;
         message_retention?: string;
         mutes?: boolean;
         name?: string;
         push_notifications?: boolean;
+        quotes?: boolean;
         reactions?: boolean;
         read_events?: boolean;
         replies?: boolean;
@@ -79,15 +105,27 @@ export type AppSettingsAPIResponse<
         url_enrichment?: boolean;
       }
     >;
+    reminders_interval: number;
+    agora_options?: AgoraOptions | null;
+    async_moderation_config?: AsyncModerationOptions;
+    async_url_enrich_enabled?: boolean;
     auto_translation_enabled?: boolean;
     before_message_send_hook_url?: string;
     campaign_enabled?: boolean;
+    cdn_expiration_seconds?: number;
     custom_action_handler_url?: string;
     disable_auth_checks?: boolean;
     disable_permissions_checks?: boolean;
     enforce_unique_usernames?: 'no' | 'app' | 'team';
     file_upload_config?: FileUploadConfig;
+    geofences?: Array<{
+      country_codes: Array<string>;
+      description: string;
+      name: string;
+      type: string;
+    }>;
     grants?: Record<string, string[]>;
+    hms_options?: HMSOptions | null;
     image_moderation_enabled?: boolean;
     image_upload_config?: FileUploadConfig;
     multi_tenant_enabled?: boolean;
@@ -96,17 +134,27 @@ export type AppSettingsAPIResponse<
     permission_version?: string;
     policies?: Record<string, Policy[]>;
     push_notifications?: {
+      offline_only: boolean;
       version: string;
       apn?: APNConfig;
       firebase?: FirebaseConfig;
+      huawei?: HuaweiConfig;
+      providers?: PushProviderConfig[];
+      xiaomi?: XiaomiConfig;
     };
     revoke_tokens_issued_before?: string | null;
+    search_backend?: 'disabled' | 'elasticsearch' | 'postgres';
+    sns_key?: string;
+    sns_secret?: string;
+    sns_topic_arn?: string;
     sqs_key?: string;
     sqs_secret?: string;
     sqs_url?: string;
     suspended?: boolean;
     suspended_explanation?: string;
-    user_search_disallowed_roles?: string[];
+    user_search_disallowed_roles?: string[] | null;
+    video_provider?: string;
+    webhook_events?: Array<string>;
     webhook_url?: string;
   };
 };
@@ -123,44 +171,73 @@ export type ModerationResult = {
   moderated_by?: string;
 };
 
-export type MessageFlagsResponse<
-  ChannelType extends UnknownType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  UserType extends UnknownType = UnknownType,
-  AttachmentType = UnknownType,
-  MessageType = UnknownType,
-  ReactionType = UnknownType
-> = APIResponse & {
+export type AutomodDetails = {
+  action?: string;
+  image_labels?: Array<string>;
+  original_message_type?: string;
+  result?: ModerationResult;
+};
+
+export type FlagDetails = {
+  automod?: AutomodDetails;
+};
+
+export type Flag<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
+  created_at: string;
+  created_by_automod: boolean;
+  updated_at: string;
+  details?: FlagDetails;
+  target_message?: MessageResponse<StreamChatGenerics>;
+  target_user?: UserResponse<StreamChatGenerics>;
+  user?: UserResponse<StreamChatGenerics>;
+};
+
+export type FlagsResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  flags?: Array<Flag<StreamChatGenerics>>;
+};
+
+export type MessageFlagsResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
   flags?: Array<{
-    message: MessageResponse<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      MessageType,
-      ReactionType,
-      UserType
-    >;
-    user: UserResponse<UserType>;
+    message: MessageResponse<StreamChatGenerics>;
+    user: UserResponse<StreamChatGenerics>;
     approved_at?: string;
     created_at?: string;
     created_by_automod?: boolean;
     moderation_result?: ModerationResult;
     rejected_at?: string;
     reviewed_at?: string;
-    reviewed_by?: UserResponse<UserType>;
+    reviewed_by?: UserResponse<StreamChatGenerics>;
     updated_at?: string;
   }>;
 };
 
-export type BannedUsersResponse<
-  ChannelType extends UnknownType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  UserType extends UnknownType = UnknownType
-> = APIResponse & {
+export type FlagReport<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
+  flags_count: number;
+  id: string;
+  message: MessageResponse<StreamChatGenerics>;
+  user: UserResponse<StreamChatGenerics>;
+  created_at?: string;
+  details?: FlagDetails;
+  first_reporter?: UserResponse<StreamChatGenerics>;
+  review_result?: string;
+  reviewed_at?: string;
+  reviewed_by?: UserResponse<StreamChatGenerics>;
+  updated_at?: string;
+};
+
+export type FlagReportsResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  flag_reports: Array<FlagReport<StreamChatGenerics>>;
+};
+
+export type ReviewFlagReportResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  flag_report: FlagReport<StreamChatGenerics>;
+};
+
+export type BannedUsersResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
   bans?: Array<{
-    user: UserResponse<UserType>;
-    banned_by?: UserResponse<UserType>;
-    channel?: ChannelResponse<ChannelType, CommandType, UserType>;
+    user: UserResponse<StreamChatGenerics>;
+    banned_by?: UserResponse<StreamChatGenerics>;
+    channel?: ChannelResponse<StreamChatGenerics>;
     expires?: string;
     ip_ban?: boolean;
     reason?: string;
@@ -174,10 +251,8 @@ export type BlockListResponse = BlockList & {
 };
 
 export type ChannelResponse<
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  UserType = UnknownType
-> = ChannelType & {
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
+> = StreamChatGenerics['channelType'] & {
   cid: string;
   disabled: boolean;
   frozen: boolean;
@@ -185,61 +260,58 @@ export type ChannelResponse<
   type: string;
   auto_translation_enabled?: boolean;
   auto_translation_language?: TranslationLanguages | '';
-  config?: ChannelConfigWithInfo<CommandType>;
+  config?: ChannelConfigWithInfo<StreamChatGenerics>;
   cooldown?: number;
   created_at?: string;
-  created_by?: UserResponse<UserType> | null;
+  created_by?: UserResponse<StreamChatGenerics> | null;
   created_by_id?: string;
   deleted_at?: string;
+  hidden?: boolean;
   invites?: string[];
+  joined?: boolean;
   last_message_at?: string;
   member_count?: number;
-  members?: ChannelMemberResponse<UserType>[];
+  members?: ChannelMemberResponse<StreamChatGenerics>[];
   muted?: boolean;
   name?: string;
   own_capabilities?: string[];
   team?: string;
+  truncated_at?: string;
+  truncated_by?: UserResponse<StreamChatGenerics>;
+  truncated_by_id?: string;
   updated_at?: string;
 };
 
-export type ChannelAPIResponse<
-  AttachmentType = UnknownType,
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  MessageType = UnknownType,
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = APIResponse & {
-  channel: ChannelResponse<ChannelType, CommandType, UserType>;
-  members: ChannelMemberResponse<UserType>[];
-  messages: MessageResponse<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    MessageType,
-    ReactionType,
-    UserType
-  >[];
-  pinned_messages: MessageResponse<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    MessageType,
-    ReactionType,
-    UserType
-  >[];
+export type QueryChannelsAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  channels: Omit<ChannelAPIResponse<StreamChatGenerics>, keyof APIResponse>[];
+};
+
+export type QueryChannelAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse &
+  ChannelAPIResponse<StreamChatGenerics>;
+
+export type ChannelAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
+  channel: ChannelResponse<StreamChatGenerics>;
+  members: ChannelMemberResponse<StreamChatGenerics>[];
+  messages: MessageResponse<StreamChatGenerics>[];
+  pinned_messages: MessageResponse<StreamChatGenerics>[];
   hidden?: boolean;
-  membership?: ChannelMembership<UserType> | null;
-  read?: ReadResponse<UserType>[];
+  membership?: ChannelMembership<StreamChatGenerics> | null;
+  pending_messages?: PendingMessageResponse<StreamChatGenerics>[];
+  read?: ReadResponse<StreamChatGenerics>[];
   watcher_count?: number;
-  watchers?: UserResponse<UserType>[];
+  watchers?: UserResponse<StreamChatGenerics>[];
 };
 
-export type ChannelMemberAPIResponse<UserType = UnknownType> = APIResponse & {
-  members: ChannelMemberResponse<UserType>[];
+export type ChannelUpdateOptions = {
+  hide_history?: boolean;
+  skip_push?: boolean;
 };
 
-export type ChannelMemberResponse<UserType = UnknownType> = {
+export type ChannelMemberAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  members: ChannelMemberResponse<StreamChatGenerics>[];
+};
+
+export type ChannelMemberResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   banned?: boolean;
   channel_role?: Role;
   created_at?: string;
@@ -250,18 +322,23 @@ export type ChannelMemberResponse<UserType = UnknownType> = {
   role?: string;
   shadow_banned?: boolean;
   updated_at?: string;
-  user?: UserResponse<UserType>;
+  user?: UserResponse<StreamChatGenerics>;
   user_id?: string;
 };
 
 export type CheckPushResponse = APIResponse & {
   device_errors?: {
-    error_message?: string;
-    provider?: string;
+    [deviceID: string]: {
+      error_message?: string;
+      provider?: PushProvider;
+      provider_name?: string;
+    };
   };
   general_errors?: string[];
   rendered_apn_template?: string;
   rendered_firebase_template?: string;
+  rendered_message?: {};
+  skip_devices?: boolean;
 };
 
 export type CheckSQSResponse = APIResponse & {
@@ -270,69 +347,53 @@ export type CheckSQSResponse = APIResponse & {
   error?: string;
 };
 
+export type CheckSNSResponse = APIResponse & {
+  status: string;
+  data?: {};
+  error?: string;
+};
+
 export type CommandResponse<
-  CommandType extends string = LiteralStringForUnion
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
 > = Partial<CreatedAtUpdatedAt> & {
   args?: string;
   description?: string;
-  name?: CommandVariants<CommandType>;
-  set?: CommandVariants<CommandType>;
+  name?: CommandVariants<StreamChatGenerics>;
+  set?: CommandVariants<StreamChatGenerics>;
 };
 
 export type ConnectAPIResponse<
-  ChannelType extends UnknownType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  UserType extends UnknownType = UnknownType
-> = Promise<void | ConnectionOpen<ChannelType, CommandType, UserType>>;
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
+> = Promise<void | ConnectionOpen<StreamChatGenerics>>;
 
-export type CreateChannelResponse<
-  CommandType extends string = LiteralStringForUnion
-> = APIResponse &
-  Omit<CreateChannelOptions<CommandType>, 'client_id' | 'connection_id'> & {
+export type CreateChannelResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse &
+  Omit<CreateChannelOptions<StreamChatGenerics>, 'client_id' | 'connection_id'> & {
     created_at: string;
     updated_at: string;
     grants?: Record<string, string[]>;
   };
 
-export type CreateCommandResponse<
-  CommandType extends string = LiteralStringForUnion
-> = APIResponse & { command: CreateCommandOptions<CommandType> & CreatedAtUpdatedAt };
-
-export type DeleteChannelAPIResponse<
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  UserType = UnknownType
-> = APIResponse & {
-  channel: ChannelResponse<ChannelType, CommandType, UserType>;
+export type CreateCommandResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  command: CreateCommandOptions<StreamChatGenerics> & CreatedAtUpdatedAt;
 };
 
-export type DeleteCommandResponse<
-  CommandType extends string = LiteralStringForUnion
-> = APIResponse & {
-  name?: CommandVariants<CommandType>;
+export type DeleteChannelAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  channel: ChannelResponse<StreamChatGenerics>;
 };
 
-export type EventAPIResponse<
-  AttachmentType extends UnknownType = UnknownType,
-  ChannelType extends UnknownType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  EventType extends UnknownType = UnknownType,
-  MessageType extends UnknownType = UnknownType,
-  ReactionType extends UnknownType = UnknownType,
-  UserType extends UnknownType = UnknownType
-> = APIResponse & {
-  event: Event<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    EventType,
-    MessageType,
-    ReactionType,
-    UserType
-  >;
+export type DeleteCommandResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  name?: CommandVariants<StreamChatGenerics>;
+};
+
+export type EventAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  event: Event<StreamChatGenerics>;
 };
 
 export type ExportChannelResponse = {
+  task_id: string;
+};
+
+export type ExportUsersResponse = {
   task_id: string;
 };
 
@@ -343,82 +404,77 @@ export type ExportChannelStatusResponse = {
   updated_at?: string;
 };
 
-export type FlagMessageResponse<UserType = UnknownType> = APIResponse & {
+export type FlagMessageResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
   flag: {
     created_at: string;
     created_by_automod: boolean;
     target_message_id: string;
     updated_at: string;
-    user: UserResponse<UserType>;
+    user: UserResponse<StreamChatGenerics>;
     approved_at?: string;
+    channel_cid?: string;
+    details?: Object; // Any JSON
+    message_user_id?: string;
     rejected_at?: string;
     reviewed_at?: string;
     reviewed_by?: string;
   };
 };
 
-export type FlagUserResponse<UserType = UnknownType> = APIResponse & {
+export type FlagUserResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
   flag: {
     created_at: string;
     created_by_automod: boolean;
-    target_user: UserResponse<UserType>;
+    target_user: UserResponse<StreamChatGenerics>;
     updated_at: string;
-    user: UserResponse<UserType>;
+    user: UserResponse<StreamChatGenerics>;
     approved_at?: string;
+    details?: Object; // Any JSON
     rejected_at?: string;
     reviewed_at?: string;
     reviewed_by?: string;
   };
 };
 
-export type FormatMessageResponse<
-  AttachmentType = UnknownType,
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  MessageType = UnknownType,
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = Omit<
-  MessageResponse<AttachmentType, ChannelType, CommandType, {}, ReactionType, UserType>,
+export type FormatMessageResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = Omit<
+  MessageResponse<{
+    attachmentType: StreamChatGenerics['attachmentType'];
+    channelType: StreamChatGenerics['channelType'];
+    commandType: StreamChatGenerics['commandType'];
+    eventType: StreamChatGenerics['eventType'];
+    messageType: {};
+    reactionType: StreamChatGenerics['reactionType'];
+    userType: StreamChatGenerics['userType'];
+  }>,
   'created_at' | 'pinned_at' | 'updated_at' | 'status'
 > &
-  MessageType & {
+  StreamChatGenerics['messageType'] & {
     created_at: Date;
     pinned_at: Date | null;
     status: string;
     updated_at: Date;
   };
 
-export type GetChannelTypeResponse<
-  CommandType extends string = LiteralStringForUnion
-> = APIResponse &
-  Omit<CreateChannelOptions<CommandType>, 'client_id' | 'connection_id' | 'commands'> & {
+export type GetChannelTypeResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse &
+  Omit<CreateChannelOptions<StreamChatGenerics>, 'client_id' | 'connection_id' | 'commands'> & {
     created_at: string;
     updated_at: string;
-    commands?: CommandResponse<CommandType>[];
+    commands?: CommandResponse<StreamChatGenerics>[];
     grants?: Record<string, string[]>;
   };
 
-export type GetCommandResponse<
-  CommandType extends string = LiteralStringForUnion
-> = APIResponse & CreateCommandOptions<CommandType> & CreatedAtUpdatedAt;
+export type GetCommandResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse &
+  CreateCommandOptions<StreamChatGenerics> &
+  CreatedAtUpdatedAt;
+
+export type GetMessageAPIResponse<
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
+> = SendMessageAPIResponse<StreamChatGenerics>;
 
 export type GetMultipleMessagesAPIResponse<
-  AttachmentType = UnknownType,
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  MessageType = UnknownType,
-  ReactionType = UnknownType,
-  UserType = UnknownType
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
 > = APIResponse & {
-  messages: MessageResponse<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    MessageType,
-    ReactionType,
-    UserType
-  >[];
+  messages: MessageResponse<StreamChatGenerics>[];
 };
 
 export type GetRateLimitsResponse = APIResponse & {
@@ -428,41 +484,33 @@ export type GetRateLimitsResponse = APIResponse & {
   web?: RateLimitsMap;
 };
 
-export type GetReactionsAPIResponse<
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = APIResponse & {
-  reactions: ReactionResponse<ReactionType, UserType>[];
+export type GetReactionsAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  reactions: ReactionResponse<StreamChatGenerics>[];
 };
 
-export type GetRepliesAPIResponse<
-  AttachmentType = UnknownType,
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  MessageType = UnknownType,
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = APIResponse & {
-  messages: MessageResponse<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    MessageType,
-    ReactionType,
-    UserType
-  >[];
+export type GetRepliesAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  messages: MessageResponse<StreamChatGenerics>[];
 };
 
-export type ListChannelResponse<
-  CommandType extends string = LiteralStringForUnion
-> = APIResponse & {
+export type GetUnreadCountAPIResponse = APIResponse & {
+  channel_type: {
+    channel_count: number;
+    channel_type: string;
+    unread_count: number;
+  }[];
+  channels: {
+    channel_id: string;
+    last_read: string;
+    unread_count: number;
+  }[];
+  total_unread_count: number;
+};
+
+export type ListChannelResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
   channel_types: Record<
     string,
-    Omit<
-      CreateChannelOptions<CommandType>,
-      'client_id' | 'connection_id' | 'commands'
-    > & {
-      commands: CommandResponse<CommandType>[];
+    Omit<CreateChannelOptions<StreamChatGenerics>, 'client_id' | 'connection_id' | 'commands'> & {
+      commands: CommandResponse<StreamChatGenerics>[];
       created_at: string;
       updated_at: string;
       grants?: Record<string, string[]>;
@@ -471,112 +519,74 @@ export type ListChannelResponse<
 };
 
 export type ListChannelTypesAPIResponse<
-  CommandType extends string = LiteralStringForUnion
-> = ListChannelResponse<CommandType>;
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
+> = ListChannelResponse<StreamChatGenerics>;
 
-export type ListCommandsResponse<
-  CommandType extends string = LiteralStringForUnion
-> = APIResponse & {
-  commands: Array<CreateCommandOptions<CommandType> & CreatedAtUpdatedAt>;
+export type ListCommandsResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  commands: Array<CreateCommandOptions<StreamChatGenerics> & Partial<CreatedAtUpdatedAt>>;
 };
 
-export type MuteChannelAPIResponse<
-  ChannelType extends UnknownType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  UserType extends UnknownType = UnknownType
-> = APIResponse & {
-  channel_mute: ChannelMute<ChannelType, CommandType, UserType>;
-  own_user: OwnUserResponse<ChannelType, CommandType, UserType>;
-  channel_mutes?: ChannelMute<ChannelType, CommandType, UserType>[];
-  mute?: MuteResponse<UserType>;
+export type MuteChannelAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  channel_mute: ChannelMute<StreamChatGenerics>;
+  own_user: OwnUserResponse<StreamChatGenerics>;
+  channel_mutes?: ChannelMute<StreamChatGenerics>[];
+  mute?: MuteResponse<StreamChatGenerics>;
 };
 
 export type MessageResponse<
-  AttachmentType = UnknownType,
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  MessageType = UnknownType,
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = MessageResponseBase<
-  AttachmentType,
-  ChannelType,
-  CommandType,
-  MessageType,
-  ReactionType,
-  UserType
-> & {
-  quoted_message?: MessageResponseBase<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    MessageType,
-    ReactionType,
-    UserType
-  >;
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
+> = MessageResponseBase<StreamChatGenerics> & {
+  quoted_message?: MessageResponseBase<StreamChatGenerics>;
 };
 
 export type MessageResponseBase<
-  AttachmentType = UnknownType,
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  MessageType = UnknownType,
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = MessageBase<AttachmentType, MessageType, UserType> & {
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
+> = MessageBase<StreamChatGenerics> & {
+  type: MessageLabel;
   args?: string;
-  channel?: ChannelResponse<ChannelType, CommandType, UserType>;
+  channel?: ChannelResponse<StreamChatGenerics>;
   cid?: string;
   command?: string;
   command_info?: { name?: string };
   created_at?: string;
   deleted_at?: string;
+  deleted_reply_count?: number;
   i18n?: RequireAtLeastOne<Record<`${TranslationLanguages}_text`, string>> & {
     language: TranslationLanguages;
   };
-  latest_reactions?: ReactionResponse<ReactionType, UserType>[];
-  mentioned_users?: UserResponse<UserType>[];
-  own_reactions?: ReactionResponse<ReactionType, UserType>[] | null;
+  latest_reactions?: ReactionResponse<StreamChatGenerics>[];
+  mentioned_users?: UserResponse<StreamChatGenerics>[];
+  own_reactions?: ReactionResponse<StreamChatGenerics>[] | null;
   pin_expires?: string | null;
   pinned_at?: string | null;
-  pinned_by?: UserResponse<UserType> | null;
+  pinned_by?: UserResponse<StreamChatGenerics> | null;
   reaction_counts?: { [key: string]: number } | null;
   reaction_scores?: { [key: string]: number } | null;
   reply_count?: number;
   shadowed?: boolean;
-  silent?: boolean;
   status?: string;
-  thread_participants?: UserResponse<UserType>[];
-  type?: MessageLabel;
+  thread_participants?: UserResponse<StreamChatGenerics>[];
   updated_at?: string;
 };
 
-export type MuteResponse<UserType = UnknownType> = {
-  user: UserResponse<UserType>;
+export type MuteResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
+  user: UserResponse<StreamChatGenerics>;
   created_at?: string;
   expires?: string;
-  target?: UserResponse<UserType>;
+  target?: UserResponse<StreamChatGenerics>;
   updated_at?: string;
 };
 
-export type MuteUserResponse<
-  ChannelType extends UnknownType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  UserType extends UnknownType = UnknownType
-> = APIResponse & {
-  mute?: MuteResponse<UserType>;
-  mutes?: Array<Mute<UserType>>;
-  own_user?: OwnUserResponse<ChannelType, CommandType, UserType>;
+export type MuteUserResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  mute?: MuteResponse<StreamChatGenerics>;
+  mutes?: Array<Mute<StreamChatGenerics>>;
+  own_user?: OwnUserResponse<StreamChatGenerics>;
 };
 
-export type OwnUserBase<
-  ChannelType extends UnknownType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  UserType extends UnknownType = UnknownType
-> = {
-  channel_mutes: ChannelMute<ChannelType, CommandType, UserType>[];
-  devices: Device<UserType>[];
-  mutes: Mute<UserType>[];
+export type OwnUserBase<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
+  channel_mutes: ChannelMute<StreamChatGenerics>[];
+  devices: Device<StreamChatGenerics>[];
+  mutes: Mute<StreamChatGenerics>[];
   total_unread_count: number;
   unread_channels: number;
   unread_count: number;
@@ -585,18 +595,14 @@ export type OwnUserBase<
 };
 
 export type OwnUserResponse<
-  ChannelType extends UnknownType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  UserType extends UnknownType = UnknownType
-> = UserResponse<UserType> & OwnUserBase<ChannelType, CommandType, UserType>;
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
+> = UserResponse<StreamChatGenerics> & OwnUserBase<StreamChatGenerics>;
 
 export type PartialUpdateChannelAPIResponse<
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  UserType = UnknownType
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
 > = APIResponse & {
-  channel: ChannelResponse<ChannelType, CommandType, UserType>;
-  members: ChannelMemberResponse<UserType>[];
+  channel: ChannelResponse<StreamChatGenerics>;
+  members: ChannelMemberResponse<StreamChatGenerics>[];
 };
 
 export type PermissionAPIResponse = APIResponse & {
@@ -607,56 +613,29 @@ export type PermissionsAPIResponse = APIResponse & {
   permissions?: PermissionAPIObject[];
 };
 
-export type ReactionAPIResponse<
-  AttachmentType = UnknownType,
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  MessageType = UnknownType,
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = APIResponse & {
-  message: MessageResponse<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    MessageType,
-    ReactionType,
-    UserType
-  >;
-  reaction: ReactionResponse<ReactionType, UserType>;
+export type ReactionAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  message: MessageResponse<StreamChatGenerics>;
+  reaction: ReactionResponse<StreamChatGenerics>;
 };
 
 export type ReactionResponse<
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = Reaction<ReactionType, UserType> & {
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
+> = Reaction<StreamChatGenerics> & {
   created_at: string;
+  message_id: string;
   updated_at: string;
 };
 
-export type ReadResponse<UserType = UnknownType> = {
+export type ReadResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   last_read: string;
-  user: UserResponse<UserType>;
+  user: UserResponse<StreamChatGenerics>;
+  last_read_message_id?: string;
   unread_messages?: number;
 };
 
-export type SearchAPIResponse<
-  AttachmentType = UnknownType,
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  MessageType = UnknownType,
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = APIResponse & {
+export type SearchAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
   results: {
-    message: MessageResponse<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      MessageType,
-      ReactionType,
-      UserType
-    >;
+    message: MessageResponse<StreamChatGenerics>;
   }[];
   next?: string;
   previous?: string;
@@ -669,98 +648,59 @@ export type SearchWarning = {
   warning_code: number;
   warning_description: string;
 };
-export type SendFileAPIResponse = APIResponse & { file: string };
 
-export type SendMessageAPIResponse<
-  AttachmentType = UnknownType,
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  MessageType = UnknownType,
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = APIResponse & {
-  message: MessageResponse<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    MessageType,
-    ReactionType,
-    UserType
-  >;
+// Thumb URL(thumb_url) is added considering video attachments as the backend will return the thumbnail in the response.
+export type SendFileAPIResponse = APIResponse & { file: string; thumb_url?: string };
+
+export type SendMessageAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  message: MessageResponse<StreamChatGenerics>;
+  pending_message_metadata?: Record<string, string> | null;
+};
+
+export type SyncResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  events: Event<StreamChatGenerics>[];
+  inaccessible_cids?: string[];
 };
 
 export type TruncateChannelAPIResponse<
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  UserType = UnknownType
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
 > = APIResponse & {
-  channel: ChannelResponse<ChannelType, CommandType, UserType>;
+  channel: ChannelResponse<StreamChatGenerics>;
+  message?: MessageResponse<StreamChatGenerics>;
 };
 
-export type UpdateChannelAPIResponse<
-  AttachmentType = UnknownType,
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  MessageType = UnknownType,
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = APIResponse & {
-  channel: ChannelResponse<ChannelType, CommandType, UserType>;
-  members: ChannelMemberResponse<UserType>[];
-  message?: MessageResponse<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    MessageType,
-    ReactionType,
-    UserType
-  >;
+export type UpdateChannelAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  channel: ChannelResponse<StreamChatGenerics>;
+  members: ChannelMemberResponse<StreamChatGenerics>[];
+  message?: MessageResponse<StreamChatGenerics>;
 };
 
-export type UpdateChannelResponse<
-  CommandType extends string = LiteralStringForUnion
-> = APIResponse &
-  Omit<CreateChannelOptions<CommandType>, 'client_id' | 'connection_id'> & {
+export type UpdateChannelResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse &
+  Omit<CreateChannelOptions<StreamChatGenerics>, 'client_id' | 'connection_id'> & {
     created_at: string;
     updated_at: string;
   };
 
-export type UpdateCommandResponse<
-  CommandType extends string = LiteralStringForUnion
-> = APIResponse & {
-  command: UpdateCommandOptions<CommandType> &
+export type UpdateCommandResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  command: UpdateCommandOptions<StreamChatGenerics> &
     CreatedAtUpdatedAt & {
-      name: CommandVariants<CommandType>;
+      name: CommandVariants<StreamChatGenerics>;
     };
 };
 
-export type UpdateMessageAPIResponse<
-  AttachmentType = UnknownType,
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  MessageType = UnknownType,
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = APIResponse & {
-  message: MessageResponse<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    MessageType,
-    ReactionType,
-    UserType
-  >;
+export type UpdateMessageAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  message: MessageResponse<StreamChatGenerics>;
 };
 
-export type UsersAPIResponse<UserType = UnknownType> = APIResponse & {
-  users: Array<UserResponse<UserType>>;
+export type UsersAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  users: Array<UserResponse<StreamChatGenerics>>;
 };
 
-export type UpdateUsersAPIResponse<UserType = UnknownType> = APIResponse & {
-  users: { [key: string]: UserResponse<UserType> };
+export type UpdateUsersAPIResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = APIResponse & {
+  users: { [key: string]: UserResponse<StreamChatGenerics> };
 };
 
-export type UserResponse<UserType = UnknownType> = User<UserType> & {
+export type UserResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = User<StreamChatGenerics> & {
   banned?: boolean;
   created_at?: string;
   deactivated_at?: string;
@@ -768,9 +708,15 @@ export type UserResponse<UserType = UnknownType> = User<UserType> & {
   language?: TranslationLanguages | '';
   last_active?: string;
   online?: boolean;
+  push_notifications?: PushNotificationSettings;
   revoke_tokens_issued_before?: string;
   shadow_banned?: boolean;
   updated_at?: string;
+};
+
+export type PushNotificationSettings = {
+  disabled?: boolean;
+  disabled_until?: string | null;
 };
 
 /**
@@ -782,49 +728,51 @@ export type MessageFlagsPaginationOptions = {
   offset?: number;
 };
 
-export type BannedUsersPaginationOptions = Omit<
-  PaginationOptions,
-  'id_gt' | 'id_gte' | 'id_lt' | 'id_lte'
->;
+export type FlagsPaginationOptions = {
+  limit?: number;
+  offset?: number;
+};
 
-export type BanUserOptions<UserType = UnknownType> = UnBanUserOptions & {
-  banned_by?: UserResponse<UserType>;
+export type FlagReportsPaginationOptions = {
+  limit?: number;
+  offset?: number;
+};
+
+export type ReviewFlagReportOptions = {
+  review_details?: Object;
+  user_id?: string;
+};
+
+export type BannedUsersPaginationOptions = Omit<PaginationOptions, 'id_gt' | 'id_gte' | 'id_lt' | 'id_lte'> & {
+  exclude_expired_bans?: boolean;
+};
+
+export type BanUserOptions<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = UnBanUserOptions & {
+  banned_by?: UserResponse<StreamChatGenerics>;
   banned_by_id?: string;
   ip_ban?: boolean;
   reason?: string;
   timeout?: number;
-  /**
-   * @deprecated please use banned_by
-   */
-  user?: UserResponse<UserType>;
-  /**
-   * @deprecated please use banned_by_id
-   */
-  user_id?: string;
 };
 
 export type ChannelOptions = {
-  last_message_ids?: { [key: string]: string };
   limit?: number;
+  member_limit?: number;
   message_limit?: number;
   offset?: number;
   presence?: boolean;
-  recovery?: boolean;
   state?: boolean;
   user_id?: string;
   watch?: boolean;
 };
 
-export type ChannelQueryOptions<
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  UserType = UnknownType
-> = {
+export type ChannelQueryOptions<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   client_id?: string;
   connection_id?: string;
-  data?: ChannelResponse<ChannelType, CommandType, UserType>;
+  data?: ChannelResponse<StreamChatGenerics>;
+  hide_for_creator?: boolean;
   members?: PaginationOptions;
-  messages?: PaginationOptions;
+  messages?: MessagePaginationOptions;
   presence?: boolean;
   state?: boolean;
   watch?: boolean;
@@ -832,29 +780,33 @@ export type ChannelQueryOptions<
 };
 
 export type ChannelStateOptions = {
+  offlineMode?: boolean;
   skipInitialization?: string[];
 };
 
-export type CreateChannelOptions<CommandType extends string = LiteralStringForUnion> = {
+export type CreateChannelOptions<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   automod?: ChannelConfigAutomod;
   automod_behavior?: ChannelConfigAutomodBehavior;
   automod_thresholds?: ChannelConfigAutomodThresholds;
   blocklist?: string;
   blocklist_behavior?: ChannelConfigAutomodBehavior;
   client_id?: string;
-  commands?: CommandVariants<CommandType>[];
+  commands?: CommandVariants<StreamChatGenerics>[];
   connect_events?: boolean;
   connection_id?: string;
   custom_events?: boolean;
   grants?: Record<string, string[]>;
+  mark_messages_pending?: boolean;
   max_message_length?: number;
   message_retention?: string;
   mutes?: boolean;
   name?: string;
   permissions?: PermissionObject[];
   push_notifications?: boolean;
+  quotes?: boolean;
   reactions?: boolean;
   read_events?: boolean;
+  reminders?: boolean;
   replies?: boolean;
   search?: boolean;
   typing_events?: boolean;
@@ -862,70 +814,74 @@ export type CreateChannelOptions<CommandType extends string = LiteralStringForUn
   url_enrichment?: boolean;
 };
 
-export type CreateCommandOptions<CommandType extends string = LiteralStringForUnion> = {
+export type CreateCommandOptions<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   description: string;
-  name: CommandVariants<CommandType>;
+  name: CommandVariants<StreamChatGenerics>;
   args?: string;
-  set?: CommandVariants<CommandType>;
+  set?: CommandVariants<StreamChatGenerics>;
 };
 
 export type CustomPermissionOptions = {
   action: string;
+  condition: object;
   id: string;
   name: string;
-  condition?: string;
   description?: string;
   owner?: boolean;
   same_team?: boolean;
 };
 
+export type DeactivateUsersOptions = {
+  created_by_id?: string;
+  mark_messages_deleted?: boolean;
+};
+
 // TODO: rename to UpdateChannelOptions in the next major update and use it in channel._update and/or channel.update
-export type InviteOptions<
-  AttachmentType = UnknownType,
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  MessageType = UnknownType,
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = {
+export type InviteOptions<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   accept_invite?: boolean;
   add_members?: string[];
   add_moderators?: string[];
   client_id?: string;
   connection_id?: string;
-  data?: Omit<ChannelResponse<ChannelType, CommandType, UserType>, 'id' | 'cid'>;
+  data?: Omit<ChannelResponse<StreamChatGenerics>, 'id' | 'cid'>;
   demote_moderators?: string[];
   invites?: string[];
-  message?: MessageResponse<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    MessageType,
-    ReactionType,
-    UserType
-  >;
+  message?: MessageResponse<StreamChatGenerics>;
   reject_invite?: boolean;
   remove_members?: string[];
-  user?: UserResponse<UserType>;
+  user?: UserResponse<StreamChatGenerics>;
   user_id?: string;
 };
 
-export type MarkAllReadOptions<UserType = UnknownType> = {
+/** @deprecated use MarkChannelsReadOptions instead */
+export type MarkAllReadOptions<
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
+> = MarkChannelsReadOptions<StreamChatGenerics>;
+
+export type MarkChannelsReadOptions<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   client_id?: string;
   connection_id?: string;
-  user?: UserResponse<UserType>;
+  read_by_channel?: Record<string, string>;
+  user?: UserResponse<StreamChatGenerics>;
   user_id?: string;
 };
 
-export type MarkReadOptions<UserType = UnknownType> = {
+export type MarkReadOptions<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   client_id?: string;
   connection_id?: string;
-  message_id?: string;
-  user?: UserResponse<UserType>;
+  user?: UserResponse<StreamChatGenerics>;
   user_id?: string;
 };
 
-export type MuteUserOptions<UserType = UnknownType> = {
+export type MarkUnreadOptions<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
+  message_id: string;
+  client_id?: string;
+  connection_id?: string;
+  user?: UserResponse<StreamChatGenerics>;
+  user_id?: string;
+};
+
+export type MuteUserOptions<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   client_id?: string;
   connection_id?: string;
   id?: string;
@@ -933,7 +889,7 @@ export type MuteUserOptions<UserType = UnknownType> = {
   target_user_id?: string;
   timeout?: number;
   type?: string;
-  user?: UserResponse<UserType>;
+  user?: UserResponse<StreamChatGenerics>;
   user_id?: string;
 };
 
@@ -950,6 +906,26 @@ export type PaginationOptions = {
   offset?: number;
 };
 
+export type MessagePaginationOptions = PaginationOptions & {
+  created_at_around?: string | Date;
+  id_around?: string;
+};
+
+export type PinnedMessagePaginationOptions = {
+  id_around?: string;
+  id_gt?: string;
+  id_gte?: string;
+  id_lt?: string;
+  id_lte?: string;
+  limit?: number;
+  offset?: number;
+  pinned_at_after?: string | Date;
+  pinned_at_after_or_equal?: string | Date;
+  pinned_at_around?: string | Date;
+  pinned_at_before?: string | Date;
+  pinned_at_before_or_equal?: string | Date;
+};
+
 export type QueryMembersOptions = {
   limit?: number;
   offset?: number;
@@ -959,11 +935,22 @@ export type QueryMembersOptions = {
   user_id_lte?: string;
 };
 
-export type SearchOptions<MessageType = UnknownType> = {
+export type ReactivateUserOptions = {
+  created_by_id?: string;
+  name?: string;
+  restore_messages?: boolean;
+};
+
+export type ReactivateUsersOptions = {
+  created_by_id?: string;
+  restore_messages?: boolean;
+};
+
+export type SearchOptions<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   limit?: number;
   next?: string;
   offset?: number;
-  sort?: SearchMessageSort<MessageType>;
+  sort?: SearchMessageSort<StreamChatGenerics>;
 };
 
 export type StreamChatOptions = AxiosRequestConfig & {
@@ -971,6 +958,7 @@ export type StreamChatOptions = AxiosRequestConfig & {
    * Used to disable warnings that are triggered by using connectUser or connectAnonymousUser server-side.
    */
   allowServerSideConnect?: boolean;
+  axiosRequestConfig?: AxiosRequestConfig;
   /**
    * Base url to use for API
    * such as https://chat-proxy-dublin.stream-io-api.com
@@ -978,7 +966,17 @@ export type StreamChatOptions = AxiosRequestConfig & {
   baseURL?: string;
   browser?: boolean;
   device?: BaseDeviceFields;
+  enableInsights?: boolean;
+  /** experimental feature, please contact support if you want this feature enabled for you */
+  enableWSFallback?: boolean;
   logger?: Logger;
+  /**
+   * When true, user will be persisted on client. Otherwise if `connectUser` call fails, then you need to
+   * call `connectUser` again to retry.
+   * This is mainly useful for chat application working in offline mode, where you will need client.user to
+   * persist even if connectUser call fails.
+   */
+  persistUserOnConnectionFailure?: boolean;
   /**
    * When network is recovered, we re-query the active channels on client. But in single query, you can recover
    * only 30 channels. So its not guaranteed that all the channels in activeChannels object have updated state.
@@ -990,6 +988,22 @@ export type StreamChatOptions = AxiosRequestConfig & {
    */
   recoverStateOnReconnect?: boolean;
   warmUp?: boolean;
+  // Set the instance of StableWSConnection on chat client. Its purely for testing purpose and should
+  // not be used in production apps.
+  wsConnection?: StableWSConnection;
+};
+
+export type SyncOptions = {
+  /**
+   * This will behave as queryChannels option.
+   */
+  watch?: boolean;
+  /**
+   * Return channels from request that user does not have access to in a separate
+   * field in the response called 'inaccessible_cids' instead of
+   * adding them as 'notification.removed_from_channel' events.
+   */
+  with_inaccessible_cids?: boolean;
 };
 
 export type UnBanUserOptions = {
@@ -1002,17 +1016,18 @@ export type UnBanUserOptions = {
 };
 
 // TODO: rename to UpdateChannelTypeOptions in the next major update
-export type UpdateChannelOptions<
-  CommandType extends string = LiteralStringForUnion
-> = Omit<CreateChannelOptions<CommandType>, 'name'> & {
+export type UpdateChannelOptions<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = Omit<
+  CreateChannelOptions<StreamChatGenerics>,
+  'name'
+> & {
   created_at?: string;
   updated_at?: string;
 };
 
-export type UpdateCommandOptions<CommandType extends string = LiteralStringForUnion> = {
+export type UpdateCommandOptions<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   description: string;
   args?: string;
-  set?: CommandVariants<CommandType>;
+  set?: CommandVariants<StreamChatGenerics>;
 };
 
 export type UserOptions = {
@@ -1030,17 +1045,9 @@ export type ConnectionChangeEvent = {
   online?: boolean;
 };
 
-export type Event<
-  AttachmentType extends UnknownType = UnknownType,
-  ChannelType extends UnknownType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  EventType extends UnknownType = UnknownType,
-  MessageType extends UnknownType = UnknownType,
-  ReactionType extends UnknownType = UnknownType,
-  UserType extends UnknownType = UnknownType
-> = EventType & {
+export type Event<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = StreamChatGenerics['eventType'] & {
   type: EventTypes;
-  channel?: ChannelResponse<ChannelType, CommandType, UserType>;
+  channel?: ChannelResponse<StreamChatGenerics>;
   channel_id?: string;
   channel_type?: string;
   cid?: string;
@@ -1048,97 +1055,40 @@ export type Event<
   connection_id?: string;
   created_at?: string;
   hard_delete?: boolean;
+  last_read_message_id?: string;
   mark_messages_deleted?: boolean;
-  me?: OwnUserResponse<ChannelType, CommandType, UserType>;
-  member?: ChannelMemberResponse<UserType>;
-  message?: MessageResponse<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    MessageType,
-    ReactionType,
-    UserType
-  >;
+  me?: OwnUserResponse<StreamChatGenerics>;
+  member?: ChannelMemberResponse<StreamChatGenerics>;
+  message?: MessageResponse<StreamChatGenerics>;
+  mode?: string;
   online?: boolean;
   parent_id?: string;
-  reaction?: ReactionResponse<ReactionType, UserType>;
+  queriedChannels?: {
+    channels: ChannelAPIResponse<StreamChatGenerics>[];
+    isLatestMessageSet?: boolean;
+  };
+  reaction?: ReactionResponse<StreamChatGenerics>;
   received_at?: string | Date;
   team?: string;
   total_unread_count?: number;
   unread_channels?: number;
   unread_count?: number;
-  user?: UserResponse<UserType>;
+  user?: UserResponse<StreamChatGenerics>;
   user_id?: string;
   watcher_count?: number;
 };
 
-export type UserCustomEvent<EventType extends UnknownType = UnknownType> = EventType & {
+export type UserCustomEvent<
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
+> = StreamChatGenerics['eventType'] & {
   type: string;
 };
 
-export type EventHandler<
-  AttachmentType extends UnknownType = UnknownType,
-  ChannelType extends UnknownType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  EventType extends UnknownType = UnknownType,
-  MessageType extends UnknownType = UnknownType,
-  ReactionType extends UnknownType = UnknownType,
-  UserType extends UnknownType = UnknownType
-> = (
-  event: Event<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    EventType,
-    MessageType,
-    ReactionType,
-    UserType
-  >,
+export type EventHandler<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = (
+  event: Event<StreamChatGenerics>,
 ) => void;
 
-export type EventTypes =
-  | 'all'
-  | 'channel.created'
-  | 'channel.deleted'
-  | 'channel.hidden'
-  | 'channel.muted'
-  | 'channel.truncated'
-  | 'channel.unmuted'
-  | 'channel.updated'
-  | 'channel.visible'
-  | 'connection.changed'
-  | 'connection.recovered'
-  | 'health.check'
-  | 'member.added'
-  | 'member.removed'
-  | 'member.updated'
-  | 'message.deleted'
-  | 'message.new'
-  | 'message.read'
-  | 'message.updated'
-  | 'notification.added_to_channel'
-  | 'notification.channel_deleted'
-  | 'notification.channel_mutes_updated'
-  | 'notification.channel_truncated'
-  | 'notification.invite_accepted'
-  | 'notification.invite_rejected'
-  | 'notification.invited'
-  | 'notification.mark_read'
-  | 'notification.message_new'
-  | 'notification.mutes_updated'
-  | 'notification.removed_from_channel'
-  | 'reaction.deleted'
-  | 'reaction.new'
-  | 'reaction.updated'
-  | 'typing.start'
-  | 'typing.stop'
-  | 'user.banned'
-  | 'user.deleted'
-  | 'user.presence.changed'
-  | 'user.unbanned'
-  | 'user.updated'
-  | 'user.watching.start'
-  | 'user.watching.stop';
+export type EventTypes = 'all' | keyof typeof EVENT_MAP;
 
 /**
  * Filter Types
@@ -1156,29 +1106,110 @@ export type MessageFlagsFiltersOptions = {
 export type MessageFlagsFilters = QueryFilters<
   {
     channel_cid?:
-      | RequireOnlyOne<
-          Pick<QueryFilter<MessageFlagsFiltersOptions['channel_cid']>, '$eq' | '$in'>
-        >
+      | RequireOnlyOne<Pick<QueryFilter<MessageFlagsFiltersOptions['channel_cid']>, '$eq' | '$in'>>
       | PrimitiveFilter<MessageFlagsFiltersOptions['channel_cid']>;
   } & {
     team?:
-      | RequireOnlyOne<
-          Pick<QueryFilter<MessageFlagsFiltersOptions['team']>, '$eq' | '$in'>
-        >
+      | RequireOnlyOne<Pick<QueryFilter<MessageFlagsFiltersOptions['team']>, '$eq' | '$in'>>
       | PrimitiveFilter<MessageFlagsFiltersOptions['team']>;
   } & {
     user_id?:
-      | RequireOnlyOne<
-          Pick<QueryFilter<MessageFlagsFiltersOptions['user_id']>, '$eq' | '$in'>
-        >
+      | RequireOnlyOne<Pick<QueryFilter<MessageFlagsFiltersOptions['user_id']>, '$eq' | '$in'>>
       | PrimitiveFilter<MessageFlagsFiltersOptions['user_id']>;
   } & {
-      [Key in keyof Omit<
-        MessageFlagsFiltersOptions,
-        'channel_cid' | 'user_id' | 'is_reviewed'
-      >]:
+      [Key in keyof Omit<MessageFlagsFiltersOptions, 'channel_cid' | 'user_id' | 'is_reviewed'>]:
         | RequireOnlyOne<QueryFilter<MessageFlagsFiltersOptions[Key]>>
         | PrimitiveFilter<MessageFlagsFiltersOptions[Key]>;
+    }
+>;
+
+export type FlagsFiltersOptions = {
+  channel_cid?: string;
+  message_id?: string;
+  message_user_id?: string;
+  reporter_id?: string;
+  team?: string;
+  user_id?: string;
+};
+
+export type FlagsFilters = QueryFilters<
+  {
+    user_id?:
+      | RequireOnlyOne<Pick<QueryFilter<FlagsFiltersOptions['user_id']>, '$eq' | '$in'>>
+      | PrimitiveFilter<FlagsFiltersOptions['user_id']>;
+  } & {
+    message_id?:
+      | RequireOnlyOne<Pick<QueryFilter<FlagsFiltersOptions['message_id']>, '$eq' | '$in'>>
+      | PrimitiveFilter<FlagsFiltersOptions['message_id']>;
+  } & {
+    message_user_id?:
+      | RequireOnlyOne<Pick<QueryFilter<FlagsFiltersOptions['message_user_id']>, '$eq' | '$in'>>
+      | PrimitiveFilter<FlagsFiltersOptions['message_user_id']>;
+  } & {
+    channel_cid?:
+      | RequireOnlyOne<Pick<QueryFilter<FlagsFiltersOptions['channel_cid']>, '$eq' | '$in'>>
+      | PrimitiveFilter<FlagsFiltersOptions['channel_cid']>;
+  } & {
+    reporter_id?:
+      | RequireOnlyOne<Pick<QueryFilter<FlagsFiltersOptions['reporter_id']>, '$eq' | '$in'>>
+      | PrimitiveFilter<FlagsFiltersOptions['reporter_id']>;
+  } & {
+    team?:
+      | RequireOnlyOne<Pick<QueryFilter<FlagsFiltersOptions['team']>, '$eq' | '$in'>>
+      | PrimitiveFilter<FlagsFiltersOptions['team']>;
+  }
+>;
+
+export type FlagReportsFiltersOptions = {
+  channel_cid?: string;
+  is_reviewed?: boolean;
+  message_id?: string;
+  message_user_id?: string;
+  report_id?: string;
+  review_result?: string;
+  reviewed_by?: string;
+  team?: string;
+  user_id?: string;
+};
+
+export type FlagReportsFilters = QueryFilters<
+  {
+    report_id?:
+      | RequireOnlyOne<Pick<QueryFilter<FlagReportsFiltersOptions['report_id']>, '$eq' | '$in'>>
+      | PrimitiveFilter<FlagReportsFiltersOptions['report_id']>;
+  } & {
+    review_result?:
+      | RequireOnlyOne<Pick<QueryFilter<FlagReportsFiltersOptions['review_result']>, '$eq' | '$in'>>
+      | PrimitiveFilter<FlagReportsFiltersOptions['review_result']>;
+  } & {
+    reviewed_by?:
+      | RequireOnlyOne<Pick<QueryFilter<FlagReportsFiltersOptions['reviewed_by']>, '$eq' | '$in'>>
+      | PrimitiveFilter<FlagReportsFiltersOptions['reviewed_by']>;
+  } & {
+    user_id?:
+      | RequireOnlyOne<Pick<QueryFilter<FlagReportsFiltersOptions['user_id']>, '$eq' | '$in'>>
+      | PrimitiveFilter<FlagReportsFiltersOptions['user_id']>;
+  } & {
+    message_id?:
+      | RequireOnlyOne<Pick<QueryFilter<FlagReportsFiltersOptions['message_id']>, '$eq' | '$in'>>
+      | PrimitiveFilter<FlagReportsFiltersOptions['message_id']>;
+  } & {
+    message_user_id?:
+      | RequireOnlyOne<Pick<QueryFilter<FlagReportsFiltersOptions['message_user_id']>, '$eq' | '$in'>>
+      | PrimitiveFilter<FlagReportsFiltersOptions['message_user_id']>;
+  } & {
+    channel_cid?:
+      | RequireOnlyOne<Pick<QueryFilter<FlagReportsFiltersOptions['channel_cid']>, '$eq' | '$in'>>
+      | PrimitiveFilter<FlagReportsFiltersOptions['channel_cid']>;
+  } & {
+    team?:
+      | RequireOnlyOne<Pick<QueryFilter<FlagReportsFiltersOptions['team']>, '$eq' | '$in'>>
+      | PrimitiveFilter<FlagReportsFiltersOptions['team']>;
+  } & {
+      [Key in keyof Omit<
+        FlagReportsFiltersOptions,
+        'report_id' | 'user_id' | 'message_id' | 'review_result' | 'reviewed_by'
+      >]: RequireOnlyOne<QueryFilter<FlagReportsFiltersOptions[Key]>> | PrimitiveFilter<FlagReportsFiltersOptions[Key]>;
     }
 >;
 
@@ -1193,9 +1224,7 @@ export type BannedUsersFilterOptions = {
 export type BannedUsersFilters = QueryFilters<
   {
     channel_cid?:
-      | RequireOnlyOne<
-          Pick<QueryFilter<BannedUsersFilterOptions['channel_cid']>, '$eq' | '$in'>
-        >
+      | RequireOnlyOne<Pick<QueryFilter<BannedUsersFilterOptions['channel_cid']>, '$eq' | '$in'>>
       | PrimitiveFilter<BannedUsersFilterOptions['channel_cid']>;
   } & {
     reason?:
@@ -1212,12 +1241,8 @@ export type BannedUsersFilters = QueryFilters<
     }
 >;
 
-export type ChannelFilters<
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  UserType = UnknownType
-> = QueryFilters<
-  ContainsOperator<ChannelType> & {
+export type ChannelFilters<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = QueryFilters<
+  ContainsOperator<StreamChatGenerics['channelType']> & {
     members?:
       | RequireOnlyOne<Pick<QueryFilter<string>, '$in' | '$nin'>>
       | RequireOnlyOne<Pick<QueryFilter<string[]>, '$eq'>>
@@ -1226,17 +1251,47 @@ export type ChannelFilters<
     name?:
       | RequireOnlyOne<
           {
-            $autocomplete?: ChannelResponse<ChannelType, CommandType, UserType>['name'];
-          } & QueryFilter<ChannelResponse<ChannelType, CommandType, UserType>['name']>
+            $autocomplete?: ChannelResponse<StreamChatGenerics>['name'];
+          } & QueryFilter<ChannelResponse<StreamChatGenerics>['name']>
         >
-      | PrimitiveFilter<ChannelResponse<ChannelType, CommandType, UserType>['name']>;
+      | PrimitiveFilter<ChannelResponse<StreamChatGenerics>['name']>;
   } & {
       [Key in keyof Omit<
-        ChannelResponse<{}, CommandType, UserType>,
+        ChannelResponse<{
+          attachmentType: StreamChatGenerics['attachmentType'];
+          channelType: {};
+          commandType: StreamChatGenerics['commandType'];
+          eventType: StreamChatGenerics['eventType'];
+          messageType: StreamChatGenerics['messageType'];
+          reactionType: StreamChatGenerics['reactionType'];
+          userType: StreamChatGenerics['userType'];
+        }>,
         'name' | 'members'
       >]:
-        | RequireOnlyOne<QueryFilter<ChannelResponse<{}, CommandType, UserType>[Key]>>
-        | PrimitiveFilter<ChannelResponse<{}, CommandType, UserType>[Key]>;
+        | RequireOnlyOne<
+            QueryFilter<
+              ChannelResponse<{
+                attachmentType: StreamChatGenerics['attachmentType'];
+                channelType: {};
+                commandType: StreamChatGenerics['commandType'];
+                eventType: StreamChatGenerics['eventType'];
+                messageType: StreamChatGenerics['messageType'];
+                reactionType: StreamChatGenerics['reactionType'];
+                userType: StreamChatGenerics['userType'];
+              }>[Key]
+            >
+          >
+        | PrimitiveFilter<
+            ChannelResponse<{
+              attachmentType: StreamChatGenerics['attachmentType'];
+              channelType: {};
+              commandType: StreamChatGenerics['commandType'];
+              eventType: StreamChatGenerics['eventType'];
+              messageType: StreamChatGenerics['messageType'];
+              reactionType: StreamChatGenerics['reactionType'];
+              userType: StreamChatGenerics['userType'];
+            }>[Key]
+          >;
     }
 >;
 
@@ -1254,98 +1309,59 @@ export type ContainsOperator<CustomType = {}> = {
     : RequireOnlyOne<QueryFilter<CustomType[Key]>> | PrimitiveFilter<CustomType[Key]>;
 };
 
-export type MessageFilters<
-  AttachmentType = UnknownType,
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  MessageType = UnknownType,
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = QueryFilters<
-  ContainsOperator<MessageType> & {
+export type MessageFilters<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = QueryFilters<
+  ContainsOperator<StreamChatGenerics['messageType']> & {
     text?:
       | RequireOnlyOne<
           {
-            $autocomplete?: MessageResponse<
-              AttachmentType,
-              ChannelType,
-              CommandType,
-              MessageType,
-              ReactionType,
-              UserType
-            >['text'];
-            $q?: MessageResponse<
-              AttachmentType,
-              ChannelType,
-              CommandType,
-              MessageType,
-              ReactionType,
-              UserType
-            >['text'];
-          } & QueryFilter<
-            MessageResponse<
-              AttachmentType,
-              ChannelType,
-              CommandType,
-              MessageType,
-              ReactionType,
-              UserType
-            >['text']
-          >
+            $autocomplete?: MessageResponse<StreamChatGenerics>['text'];
+            $q?: MessageResponse<StreamChatGenerics>['text'];
+          } & QueryFilter<MessageResponse<StreamChatGenerics>['text']>
         >
-      | PrimitiveFilter<
-          MessageResponse<
-            AttachmentType,
-            ChannelType,
-            CommandType,
-            MessageType,
-            ReactionType,
-            UserType
-          >['text']
-        >;
+      | PrimitiveFilter<MessageResponse<StreamChatGenerics>['text']>;
   } & {
       [Key in keyof Omit<
-        MessageResponse<
-          AttachmentType,
-          ChannelType,
-          CommandType,
-          {},
-          ReactionType,
-          UserType
-        >,
+        MessageResponse<{
+          attachmentType: StreamChatGenerics['attachmentType'];
+          channelType: StreamChatGenerics['channelType'];
+          commandType: StreamChatGenerics['commandType'];
+          eventType: StreamChatGenerics['eventType'];
+          messageType: {};
+          reactionType: StreamChatGenerics['reactionType'];
+          userType: StreamChatGenerics['userType'];
+        }>,
         'text'
       >]?:
         | RequireOnlyOne<
             QueryFilter<
-              MessageResponse<
-                AttachmentType,
-                ChannelType,
-                CommandType,
-                {},
-                ReactionType,
-                UserType
-              >[Key]
+              MessageResponse<{
+                attachmentType: StreamChatGenerics['attachmentType'];
+                channelType: StreamChatGenerics['channelType'];
+                commandType: StreamChatGenerics['commandType'];
+                eventType: StreamChatGenerics['eventType'];
+                messageType: {};
+                reactionType: StreamChatGenerics['reactionType'];
+                userType: StreamChatGenerics['userType'];
+              }>[Key]
             >
           >
         | PrimitiveFilter<
-            MessageResponse<
-              AttachmentType,
-              ChannelType,
-              CommandType,
-              {},
-              ReactionType,
-              UserType
-            >[Key]
+            MessageResponse<{
+              attachmentType: StreamChatGenerics['attachmentType'];
+              channelType: StreamChatGenerics['channelType'];
+              commandType: StreamChatGenerics['commandType'];
+              eventType: StreamChatGenerics['eventType'];
+              messageType: {};
+              reactionType: StreamChatGenerics['reactionType'];
+              userType: StreamChatGenerics['userType'];
+            }>[Key]
           >;
     }
 >;
 
 export type PrimitiveFilter<ObjectType> = ObjectType | null;
 
-export type QueryFilter<ObjectType = string> = NonNullable<ObjectType> extends
-  | string
-  | number
-  | boolean
+export type QueryFilter<ObjectType = string> = NonNullable<ObjectType> extends string | number | boolean
   ? {
       $eq?: PrimitiveFilter<ObjectType>;
       $exists?: boolean;
@@ -1376,39 +1392,72 @@ export type QueryLogicalOperators<Operators> = {
   $or?: ArrayTwoOrMore<QueryFilters<Operators>>;
 };
 
-export type UserFilters<UserType = UnknownType> = QueryFilters<
-  ContainsOperator<UserType> & {
+export type UserFilters<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = QueryFilters<
+  ContainsOperator<StreamChatGenerics['userType']> & {
     id?:
       | RequireOnlyOne<
-          { $autocomplete?: UserResponse<UserType>['id'] } & QueryFilter<
-            UserResponse<UserType>['id']
+          { $autocomplete?: UserResponse<StreamChatGenerics>['id'] } & QueryFilter<
+            UserResponse<StreamChatGenerics>['id']
           >
         >
-      | PrimitiveFilter<UserResponse<UserType>['id']>;
+      | PrimitiveFilter<UserResponse<StreamChatGenerics>['id']>;
     name?:
       | RequireOnlyOne<
-          { $autocomplete?: UserResponse<UserType>['name'] } & QueryFilter<
-            UserResponse<UserType>['name']
+          { $autocomplete?: UserResponse<StreamChatGenerics>['name'] } & QueryFilter<
+            UserResponse<StreamChatGenerics>['name']
           >
         >
-      | PrimitiveFilter<UserResponse<UserType>['name']>;
+      | PrimitiveFilter<UserResponse<StreamChatGenerics>['name']>;
     teams?:
       | RequireOnlyOne<{
           $contains?: PrimitiveFilter<string>;
-          $eq?: PrimitiveFilter<UserResponse<UserType>['teams']>;
+          $eq?: PrimitiveFilter<UserResponse<StreamChatGenerics>['teams']>;
         }>
-      | PrimitiveFilter<UserResponse<UserType>['teams']>;
+      | PrimitiveFilter<UserResponse<StreamChatGenerics>['teams']>;
     username?:
       | RequireOnlyOne<
-          { $autocomplete?: UserResponse<UserType>['username'] } & QueryFilter<
-            UserResponse<UserType>['username']
+          { $autocomplete?: UserResponse<StreamChatGenerics>['username'] } & QueryFilter<
+            UserResponse<StreamChatGenerics>['username']
           >
         >
-      | PrimitiveFilter<UserResponse<UserType>['username']>;
+      | PrimitiveFilter<UserResponse<StreamChatGenerics>['username']>;
   } & {
-      [Key in keyof Omit<UserResponse<{}>, 'id' | 'name' | 'teams' | 'username'>]?:
-        | RequireOnlyOne<QueryFilter<UserResponse<{}>[Key]>>
-        | PrimitiveFilter<UserResponse<{}>[Key]>;
+      [Key in keyof Omit<
+        UserResponse<{
+          attachmentType: StreamChatGenerics['attachmentType'];
+          channelType: StreamChatGenerics['channelType'];
+          commandType: StreamChatGenerics['commandType'];
+          eventType: StreamChatGenerics['eventType'];
+          messageType: StreamChatGenerics['messageType'];
+          reactionType: StreamChatGenerics['reactionType'];
+          userType: {};
+        }>,
+        'id' | 'name' | 'teams' | 'username'
+      >]?:
+        | RequireOnlyOne<
+            QueryFilter<
+              UserResponse<{
+                attachmentType: StreamChatGenerics['attachmentType'];
+                channelType: StreamChatGenerics['channelType'];
+                commandType: StreamChatGenerics['commandType'];
+                eventType: StreamChatGenerics['eventType'];
+                messageType: StreamChatGenerics['messageType'];
+                reactionType: StreamChatGenerics['reactionType'];
+                userType: {};
+              }>[Key]
+            >
+          >
+        | PrimitiveFilter<
+            UserResponse<{
+              attachmentType: StreamChatGenerics['attachmentType'];
+              channelType: StreamChatGenerics['channelType'];
+              commandType: StreamChatGenerics['commandType'];
+              eventType: StreamChatGenerics['eventType'];
+              messageType: StreamChatGenerics['messageType'];
+              reactionType: StreamChatGenerics['reactionType'];
+              userType: {};
+            }>[Key]
+          >;
     }
 >;
 
@@ -1420,11 +1469,13 @@ export type BannedUsersSort = BannedUsersSortBase | Array<BannedUsersSortBase>;
 
 export type BannedUsersSortBase = { created_at?: AscDesc };
 
-export type ChannelSort<ChannelType = UnknownType> =
-  | ChannelSortBase<ChannelType>
-  | Array<ChannelSortBase<ChannelType>>;
+export type ChannelSort<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> =
+  | ChannelSortBase<StreamChatGenerics>
+  | Array<ChannelSortBase<StreamChatGenerics>>;
 
-export type ChannelSortBase<ChannelType = UnknownType> = Sort<ChannelType> & {
+export type ChannelSortBase<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = Sort<
+  StreamChatGenerics['channelType']
+> & {
   created_at?: AscDesc;
   has_unread?: AscDesc;
   last_message_at?: AscDesc;
@@ -1434,15 +1485,24 @@ export type ChannelSortBase<ChannelType = UnknownType> = Sort<ChannelType> & {
   updated_at?: AscDesc;
 };
 
+export type PinnedMessagesSort = PinnedMessagesSortBase | Array<PinnedMessagesSortBase>;
+export type PinnedMessagesSortBase = { pinned_at?: AscDesc };
+
 export type Sort<T> = {
   [P in keyof T]?: AscDesc;
 };
 
-export type UserSort<UserType = UnknownType> =
-  | Sort<UserResponse<UserType>>
-  | Array<Sort<UserResponse<UserType>>>;
+export type UserSort<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> =
+  | Sort<UserResponse<StreamChatGenerics>>
+  | Array<Sort<UserResponse<StreamChatGenerics>>>;
 
-export type SearchMessageSortBase<MessageType = UnknownType> = Sort<MessageType> & {
+export type MemberSort<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> =
+  | Sort<Pick<UserResponse<StreamChatGenerics>, 'id' | 'created_at' | 'name'>>
+  | Array<Sort<Pick<UserResponse<StreamChatGenerics>, 'id' | 'created_at' | 'name'>>>;
+
+export type SearchMessageSortBase<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = Sort<
+  StreamChatGenerics['messageType']
+> & {
   attachments?: AscDesc;
   'attachments.type'?: AscDesc;
   created_at?: AscDesc;
@@ -1458,19 +1518,15 @@ export type SearchMessageSortBase<MessageType = UnknownType> = Sort<MessageType>
   'user.id'?: AscDesc;
 };
 
-export type SearchMessageSort<MessageType = UnknownType> =
-  | SearchMessageSortBase<MessageType>
-  | Array<SearchMessageSortBase<MessageType>>;
+export type SearchMessageSort<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> =
+  | SearchMessageSortBase<StreamChatGenerics>
+  | Array<SearchMessageSortBase<StreamChatGenerics>>;
 
-export type QuerySort<
-  ChannelType = UnknownType,
-  UserType = UnknownType,
-  MessageType = UnknownType
-> =
+export type QuerySort<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> =
   | BannedUsersSort
-  | ChannelSort<ChannelType>
-  | SearchMessageSort<MessageType>
-  | UserSort<UserType>;
+  | ChannelSort<StreamChatGenerics>
+  | SearchMessageSort<StreamChatGenerics>
+  | UserSort<StreamChatGenerics>;
 
 /**
  * Base Types
@@ -1487,6 +1543,7 @@ export type Action = {
 export type AnonUserType = {};
 
 export type APNConfig = {
+  auth_key?: string;
   auth_type?: string;
   bundle_id?: string;
   development?: boolean;
@@ -1494,10 +1551,35 @@ export type APNConfig = {
   host?: string;
   key_id?: string;
   notification_template?: string;
+  p12_cert?: string;
   team_id?: string;
 };
 
+export type AgoraOptions = {
+  app_certificate: string;
+  app_id: string;
+  role_map?: Record<string, string>;
+};
+
+export type HMSOptions = {
+  app_access_key: string;
+  app_secret: string;
+  default_role: string;
+  default_room_template: string;
+  default_region?: string;
+  role_map?: Record<string, string>;
+};
+
+export type AsyncModerationOptions = {
+  callback?: {
+    mode?: 'CALLBACK_MODE_NONE' | 'CALLBACK_MODE_REST' | 'CALLBACK_MODE_TWIRP';
+    server_url?: string;
+  };
+  timeout_ms?: number;
+};
+
 export type AppSettings = {
+  agora_options?: AgoraOptions | null;
   apn_config?: {
     auth_key?: string;
     auth_type?: string;
@@ -1509,7 +1591,11 @@ export type AppSettings = {
     p12_cert?: string;
     team_id?: string;
   };
+  async_moderation_config?: AsyncModerationOptions;
+  async_url_enrich_enabled?: boolean;
   auto_translation_enabled?: boolean;
+  before_message_send_hook_url?: string;
+  cdn_expiration_seconds?: number;
   custom_action_handler_url?: string;
   disable_auth_checks?: boolean;
   disable_permissions_checks?: boolean;
@@ -1517,26 +1603,47 @@ export type AppSettings = {
   // all possible file mime types are https://www.iana.org/assignments/media-types/media-types.xhtml
   file_upload_config?: FileUploadConfig;
   firebase_config?: {
-    credentials_json: string;
+    apn_template?: string;
+    credentials_json?: string;
     data_template?: string;
     notification_template?: string;
     server_key?: string;
   };
   grants?: Record<string, string[]>;
+  hms_options?: HMSOptions | null;
+  huawei_config?: {
+    id: string;
+    secret: string;
+  };
   image_moderation_enabled?: boolean;
   image_upload_config?: FileUploadConfig;
+  migrate_permissions_to_v2?: boolean;
   multi_tenant_enabled?: boolean;
+  permission_version?: 'v1' | 'v2';
   push_config?: {
+    offline_only?: boolean;
     version?: string;
   };
+  reminders_interval?: number;
   revoke_tokens_issued_before?: string | null;
+  sns_key?: string;
+  sns_secret?: string;
+  sns_topic_arn?: string;
   sqs_key?: string;
   sqs_secret?: string;
   sqs_url?: string;
+  video_provider?: string;
+  webhook_events?: Array<string> | null;
   webhook_url?: string;
+  xiaomi_config?: {
+    package_name: string;
+    secret: string;
+  };
 };
 
-export type Attachment<T = UnknownType> = T & {
+export type Attachment<
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
+> = StreamChatGenerics['attachmentType'] & {
   actions?: Action[];
   asset_url?: string;
   author_icon?: string;
@@ -1545,10 +1652,15 @@ export type Attachment<T = UnknownType> = T & {
   color?: string;
   fallback?: string;
   fields?: Field[];
+  file_size?: number | string;
   footer?: string;
   footer_icon?: string;
+  giphy?: GiphyData;
   image_url?: string;
+  mime_type?: string;
   og_scrape_url?: string;
+  original_height?: number;
+  original_width?: number;
   pretext?: string;
   text?: string;
   thumb_url?: string;
@@ -1557,16 +1669,27 @@ export type Attachment<T = UnknownType> = T & {
   type?: string;
 };
 
+export type OGAttachment = {
+  og_scrape_url: string;
+  asset_url?: string; // og:video | og:audio
+  author_link?: string; // og:site
+  author_name?: string; // og:site_name
+  image_url?: string; // og:image
+  text?: string; // og:description
+  thumb_url?: string; // og:image
+  title?: string; // og:title
+  title_link?: string; // og:url
+  type?: string | 'video' | 'audio' | 'image';
+};
+
 export type BlockList = {
   name: string;
   words: string[];
 };
 
-export type ChannelConfig<
-  CommandType extends string = LiteralStringForUnion
-> = ChannelConfigFields &
+export type ChannelConfig<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = ChannelConfigFields &
   CreatedAtUpdatedAt & {
-    commands?: CommandVariants<CommandType>[];
+    commands?: CommandVariants<StreamChatGenerics>[];
   };
 
 export type ChannelConfigAutomod = '' | 'AI' | 'disabled' | 'simple';
@@ -1580,16 +1703,20 @@ export type ChannelConfigAutomodThresholds = null | {
 };
 
 export type ChannelConfigFields = {
+  reminders: boolean;
   automod?: ChannelConfigAutomod;
   automod_behavior?: ChannelConfigAutomodBehavior;
+  automod_thresholds?: ChannelConfigAutomodThresholds;
   blocklist_behavior?: ChannelConfigAutomodBehavior;
   connect_events?: boolean;
   custom_events?: boolean;
+  mark_messages_pending?: boolean;
   max_message_length?: number;
   message_retention?: string;
   mutes?: boolean;
   name?: string;
   push_notifications?: boolean;
+  quotes?: boolean;
   reactions?: boolean;
   read_events?: boolean;
   replies?: boolean;
@@ -1600,18 +1727,20 @@ export type ChannelConfigFields = {
 };
 
 export type ChannelConfigWithInfo<
-  CommandType extends string = LiteralStringForUnion
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
 > = ChannelConfigFields &
   CreatedAtUpdatedAt & {
-    commands?: CommandResponse<CommandType>[];
+    commands?: CommandResponse<StreamChatGenerics>[];
   };
 
-export type ChannelData<ChannelType = UnknownType> = ChannelType & {
+export type ChannelData<
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
+> = StreamChatGenerics['channelType'] & {
   members?: string[];
   name?: string;
 };
 
-export type ChannelMembership<UserType = UnknownType> = {
+export type ChannelMembership<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   banned?: boolean;
   channel_role?: Role;
   created_at?: string;
@@ -1619,16 +1748,12 @@ export type ChannelMembership<UserType = UnknownType> = {
   role?: string;
   shadow_banned?: boolean;
   updated_at?: string;
-  user?: UserResponse<UserType>;
+  user?: UserResponse<StreamChatGenerics>;
 };
 
-export type ChannelMute<
-  ChannelType extends UnknownType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  UserType extends UnknownType = UnknownType
-> = {
-  user: UserResponse<UserType>;
-  channel?: ChannelResponse<ChannelType, CommandType, UserType>;
+export type ChannelMute<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
+  user: UserResponse<StreamChatGenerics>;
+  channel?: ChannelResponse<StreamChatGenerics>;
   created_at?: string;
   expires?: string;
   updated_at?: string;
@@ -1642,43 +1767,90 @@ export type ChannelRole = {
   same_team?: boolean;
 };
 
-export type CheckPushInput<UserType = UnknownType> = {
+export type CheckPushInput<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   apn_template?: string;
   client_id?: string;
   connection_id?: string;
   firebase_data_template?: string;
   firebase_template?: string;
   message_id?: string;
-  user?: UserResponse<UserType>;
+  user?: UserResponse<StreamChatGenerics>;
   user_id?: string;
 };
 
-export type CommandVariants<CommandType extends string = LiteralStringForUnion> =
+export type PushProvider = 'apn' | 'firebase' | 'huawei' | 'xiaomi';
+
+export type PushProviderConfig = PushProviderCommon &
+  PushProviderID &
+  PushProviderAPN &
+  PushProviderFirebase &
+  PushProviderHuawei &
+  PushProviderXiaomi;
+
+export type PushProviderID = {
+  name: string;
+  type: PushProvider;
+};
+
+export type PushProviderCommon = {
+  created_at: string;
+  updated_at: string;
+  description?: string;
+  disabled_at?: string;
+  disabled_reason?: string;
+};
+
+export type PushProviderAPN = {
+  apn_auth_key?: string;
+  apn_auth_type?: 'token' | 'certificate';
+  apn_development?: boolean;
+  apn_host?: string;
+  apn_key_id?: string;
+  apn_notification_template?: string;
+  apn_p12_cert?: string;
+  apn_team_id?: string;
+  apn_topic?: string;
+};
+
+export type PushProviderFirebase = {
+  firebase_apn_template?: string;
+  firebase_credentials?: string;
+  firebase_data_template?: string;
+  firebase_notification_template?: string;
+  firebase_server_key?: string;
+};
+
+export type PushProviderHuawei = {
+  huawei_app_id?: string;
+  huawei_app_secret?: string;
+};
+
+export type PushProviderXiaomi = {
+  xiaomi_package_name?: string;
+  xiaomi_secret?: string;
+};
+
+export type CommandVariants<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> =
   | 'all'
   | 'ban'
-  | 'flag'
   | 'fun_set'
   | 'giphy'
-  | 'imgur'
   | 'moderation_set'
   | 'mute'
   | 'unban'
   | 'unmute'
-  | CommandType;
+  | StreamChatGenerics['commandType'];
 
-export type Configs<CommandType extends string = LiteralStringForUnion> = {
-  [channel_type: string]: ChannelConfigWithInfo<CommandType> | undefined;
-};
+export type Configs<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = Record<
+  string,
+  ChannelConfigWithInfo<StreamChatGenerics> | undefined
+>;
 
-export type ConnectionOpen<
-  ChannelType extends UnknownType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  UserType extends UnknownType = UnknownType
-> = {
+export type ConnectionOpen<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   connection_id: string;
   cid?: string;
   created_at?: string;
-  me?: OwnUserResponse<ChannelType, CommandType, UserType>;
+  me?: OwnUserResponse<StreamChatGenerics>;
   type?: string;
 };
 
@@ -1687,15 +1859,16 @@ export type CreatedAtUpdatedAt = {
   updated_at: string;
 };
 
-export type Device<UserType = UnknownType> = DeviceFields & {
+export type Device<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = DeviceFields & {
   provider?: string;
-  user?: UserResponse<UserType>;
+  user?: UserResponse<StreamChatGenerics>;
   user_id?: string;
 };
 
 export type BaseDeviceFields = {
   id: string;
-  push_provider: 'apn' | 'firebase';
+  push_provider: PushProvider;
+  push_provider_name?: string;
 };
 
 export type DeviceFields = BaseDeviceFields & {
@@ -1706,16 +1879,19 @@ export type DeviceFields = BaseDeviceFields & {
 
 export type EndpointName =
   | 'Connect'
+  | 'LongPoll'
   | 'DeleteFile'
   | 'DeleteImage'
   | 'DeleteMessage'
   | 'DeleteUser'
+  | 'DeleteUsers'
   | 'DeactivateUser'
   | 'ExportUser'
   | 'DeleteReaction'
   | 'UpdateChannel'
   | 'UpdateChannelPartial'
   | 'UpdateMessage'
+  | 'UpdateMessagePartial'
   | 'GetMessage'
   | 'GetManyMessages'
   | 'UpdateUsers'
@@ -1728,18 +1904,22 @@ export type EndpointName =
   | 'QueryUsers'
   | 'QueryMembers'
   | 'QueryBannedUsers'
+  | 'QueryFlags'
+  | 'QueryMessageFlags'
   | 'GetReactions'
   | 'GetReplies'
+  | 'GetPinnedMessages'
   | 'Ban'
   | 'Unban'
-  | 'Mute'
+  | 'MuteUser'
   | 'MuteChannel'
   | 'UnmuteChannel'
   | 'UnmuteUser'
   | 'RunMessageAction'
   | 'SendEvent'
+  | 'SendUserCustomEvent'
   | 'MarkRead'
-  | 'MarkAllRead'
+  | 'MarkChannelsRead'
   | 'SendMessage'
   | 'ImportChannelMessages'
   | 'UploadFile'
@@ -1751,8 +1931,12 @@ export type EndpointName =
   | 'SendReaction'
   | 'Flag'
   | 'Unflag'
+  | 'Unblock'
+  | 'QueryFlagReports'
+  | 'FlagReportReview'
   | 'CreateChannelType'
   | 'DeleteChannel'
+  | 'DeleteChannels'
   | 'DeleteChannelType'
   | 'GetChannelType'
   | 'ListChannelTypes'
@@ -1772,6 +1956,7 @@ export type EndpointName =
   | 'CreateRole'
   | 'DeleteRole'
   | 'ListRoles'
+  | 'ListCustomRoles'
   | 'Sync'
   | 'TranslateMessage'
   | 'CreateCommand'
@@ -1788,17 +1973,48 @@ export type EndpointName =
   | 'GetExportChannelsStatus'
   | 'CheckSQS'
   | 'GetRateLimits'
-  | 'MessageUpdatePartial';
+  | 'CreateSegment'
+  | 'GetSegment'
+  | 'QuerySegments'
+  | 'UpdateSegment'
+  | 'DeleteSegment'
+  | 'CreateCampaign'
+  | 'GetCampaign'
+  | 'ListCampaigns'
+  | 'UpdateCampaign'
+  | 'DeleteCampaign'
+  | 'ScheduleCampaign'
+  | 'StopCampaign'
+  | 'ResumeCampaign'
+  | 'TestCampaign'
+  | 'GetOG'
+  | 'GetTask'
+  | 'ExportUsers'
+  | 'CreateImport'
+  | 'CreateImportURL'
+  | 'GetImport'
+  | 'ListImports'
+  | 'UpsertPushProvider'
+  | 'DeletePushProvider'
+  | 'ListPushProviders';
 
 export type ExportChannelRequest = {
   id: string;
   type: string;
+  cid?: string;
   messages_since?: Date;
   messages_until?: Date;
 };
 
 export type ExportChannelOptions = {
   clear_deleted_message_text?: boolean;
+  export_users?: boolean;
+  include_truncated_messages?: boolean;
+  version?: string;
+};
+
+export type ExportUsersRequest = {
+  user_ids: string[];
 };
 
 export type Field = {
@@ -1808,97 +2024,143 @@ export type Field = {
 };
 
 export type FileUploadConfig = {
-  allowed_file_extensions?: string[];
-  allowed_mime_types?: string[];
-  blocked_file_extensions?: string[];
-  blocked_mime_types?: string[];
+  allowed_file_extensions?: string[] | null;
+  allowed_mime_types?: string[] | null;
+  blocked_file_extensions?: string[] | null;
+  blocked_mime_types?: string[] | null;
 };
 
 export type FirebaseConfig = {
+  apn_template?: string;
   credentials_json?: string;
   data_template?: string;
   enabled?: boolean;
   notification_template?: string;
+  server_key?: string;
+};
+
+type GiphyVersionInfo = {
+  height: string;
+  url: string;
+  width: string;
+};
+
+type GiphyVersions =
+  | 'original'
+  | 'fixed_height'
+  | 'fixed_height_still'
+  | 'fixed_height_downsampled'
+  | 'fixed_width'
+  | 'fixed_width_still'
+  | 'fixed_width_downsampled';
+
+type GiphyData = {
+  [key in GiphyVersions]: GiphyVersionInfo;
+};
+
+export type HuaweiConfig = {
+  enabled?: boolean;
+  id?: string;
+  secret?: string;
+};
+
+export type XiaomiConfig = {
+  enabled?: boolean;
+  package_name?: string;
+  secret?: string;
 };
 
 export type LiteralStringForUnion = string & {};
 
-export type Logger = (
-  logLevel: 'info' | 'error' | 'warn',
-  message: string,
-  extraData?: Record<string, unknown>,
-) => void;
+export type LogLevel = 'info' | 'error' | 'warn';
 
-export type Message<
-  AttachmentType = UnknownType,
-  MessageType = UnknownType,
-  UserType = UnknownType
-> = Partial<MessageBase<AttachmentType, MessageType, UserType>> & {
+export type Logger = (logLevel: LogLevel, message: string, extraData?: Record<string, unknown>) => void;
+
+export type Message<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = Partial<
+  MessageBase<StreamChatGenerics>
+> & {
   mentioned_users?: string[];
 };
 
 export type MessageBase<
-  AttachmentType = UnknownType,
-  MessageType = UnknownType,
-  UserType = UnknownType
-> = MessageType & {
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
+> = StreamChatGenerics['messageType'] & {
   id: string;
-  attachments?: Attachment<AttachmentType>[];
+  attachments?: Attachment<StreamChatGenerics>[];
   html?: string;
   mml?: string;
   parent_id?: string;
+  pin_expires?: string | null;
   pinned?: boolean;
+  pinned_at?: string | null;
   quoted_message_id?: string;
   show_in_channel?: boolean;
+  silent?: boolean;
   text?: string;
-  user?: UserResponse<UserType> | null;
+  user?: UserResponse<StreamChatGenerics> | null;
   user_id?: string;
 };
 
-export type MessageLabel =
-  | 'deleted'
-  | 'ephemeral'
-  | 'error'
-  | 'regular'
-  | 'reply'
-  | 'system';
+export type MessageLabel = 'deleted' | 'ephemeral' | 'error' | 'regular' | 'reply' | 'system';
 
-export type Mute<UserType = UnknownType> = {
+export type SendMessageOptions = {
+  force_moderation?: boolean;
+  is_pending_message?: boolean;
+  keep_channel_hidden?: boolean;
+  pending?: boolean;
+  pending_message_metadata?: Record<string, string>;
+  skip_enrich_url?: boolean;
+  skip_push?: boolean;
+};
+
+export type UpdateMessageOptions = {
+  skip_enrich_url?: boolean;
+};
+
+export type Mute<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   created_at: string;
-  target: UserResponse<UserType>;
+  target: UserResponse<StreamChatGenerics>;
   updated_at: string;
-  user: UserResponse<UserType>;
+  user: UserResponse<StreamChatGenerics>;
 };
 
-export type PartialUpdateChannel<ChannelType = UnknownType> = {
-  set?: Partial<ChannelResponse<ChannelType>>;
-  unset?: Array<keyof ChannelResponse<ChannelType>>;
+export type PartialUpdateChannel<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
+  set?: Partial<ChannelResponse<StreamChatGenerics>>;
+  unset?: Array<keyof ChannelResponse<StreamChatGenerics>>;
 };
 
-export type PartialUserUpdate<UserType = UnknownType> = {
+export type PartialUserUpdate<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
   id: string;
-  set?: Partial<UserResponse<UserType>>;
-  unset?: Array<keyof UserResponse<UserType>>;
+  set?: Partial<UserResponse<StreamChatGenerics>>;
+  unset?: Array<keyof UserResponse<StreamChatGenerics>>;
 };
 
-export type MessageUpdatableFields<MessageType = UnknownType> = Omit<
-  MessageResponse<MessageType>,
+export type MessageUpdatableFields<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = Omit<
+  MessageResponse<StreamChatGenerics>,
   'cid' | 'created_at' | 'updated_at' | 'deleted_at' | 'user' | 'user_id'
 >;
 
-export type PartialMessageUpdate<MessageType = UnknownType> = {
-  set?: Partial<MessageUpdatableFields<MessageType>>;
-  unset?: Array<keyof MessageUpdatableFields<MessageType>>;
+export type PartialMessageUpdate<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
+  set?: Partial<MessageUpdatableFields<StreamChatGenerics>>;
+  unset?: Array<keyof MessageUpdatableFields<StreamChatGenerics>>;
+};
+
+export type PendingMessageResponse<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
+  message: MessageResponse<StreamChatGenerics>;
+  pending_message_metadata?: Record<string, string>;
 };
 
 export type PermissionAPIObject = {
   action?: string;
+  condition?: object;
   custom?: boolean;
   description?: string;
   id?: string;
+  level?: string;
   name?: string;
   owner?: boolean;
   same_team?: boolean;
+  tags?: string[];
 };
 
 export type PermissionObject = {
@@ -1917,7 +2179,7 @@ export type Policy = {
   owner?: boolean;
   priority?: number;
   resources?: string[];
-  roles?: string[];
+  roles?: string[] | null;
   updated_at?: string;
 };
 
@@ -1930,13 +2192,12 @@ export type RateLimitsInfo = {
 export type RateLimitsMap = Record<EndpointName, RateLimitsInfo>;
 
 export type Reaction<
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = ReactionType & {
+  StreamChatGenerics extends ExtendableGenerics = DefaultGenerics
+> = StreamChatGenerics['reactionType'] & {
   type: string;
   message_id?: string;
   score?: number;
-  user?: UserResponse<UserType> | null;
+  user?: UserResponse<StreamChatGenerics> | null;
   user_id?: string;
 };
 
@@ -1960,29 +2221,18 @@ export type Resource =
   | 'UpdateUser'
   | 'UploadAttachment';
 
-export type SearchPayload<
-  AttachmentType = UnknownType,
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  MessageType = UnknownType,
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = Omit<SearchOptions<MessageType>, 'sort'> & {
+export type SearchPayload<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = Omit<
+  SearchOptions<StreamChatGenerics>,
+  'sort'
+> & {
   client_id?: string;
   connection_id?: string;
-  filter_conditions?: ChannelFilters<ChannelType, CommandType, UserType>;
-  message_filter_conditions?: MessageFilters<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    MessageType,
-    ReactionType,
-    UserType
-  >;
+  filter_conditions?: ChannelFilters<StreamChatGenerics>;
+  message_filter_conditions?: MessageFilters<StreamChatGenerics>;
   query?: string;
   sort?: Array<{
     direction: AscDesc;
-    field: keyof SearchMessageSortBase<MessageType>;
+    field: keyof SearchMessageSortBase<StreamChatGenerics>;
   }>;
 };
 
@@ -1991,6 +2241,8 @@ export type TestPushDataInput = {
   firebaseDataTemplate?: string;
   firebaseTemplate?: string;
   messageID?: string;
+  pushProviderName?: string;
+  pushProviderType?: PushProvider;
   skipDevices?: boolean;
 };
 
@@ -1998,6 +2250,12 @@ export type TestSQSDataInput = {
   sqs_key?: string;
   sqs_secret?: string;
   sqs_url?: string;
+};
+
+export type TestSNSDataInput = {
+  sns_key?: string;
+  sns_secret?: string;
+  sns_topic_arn?: string;
 };
 
 export type TokenOrProvider = null | string | TokenProvider | undefined;
@@ -2036,6 +2294,7 @@ export type TranslationLanguages =
   | 'ja'
   | 'ka'
   | 'ko'
+  | 'lt'
   | 'lv'
   | 'ms'
   | 'nl'
@@ -2064,26 +2323,26 @@ export type TranslationLanguages =
 
 export type TypingStartEvent = Event;
 
-export type UpdatedMessage<
-  AttachmentType = UnknownType,
-  ChannelType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  MessageType = UnknownType,
-  ReactionType = UnknownType,
-  UserType = UnknownType
-> = Omit<
-  MessageResponse<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    MessageType,
-    ReactionType,
-    UserType
-  >,
+export type ReservedMessageFields =
+  | 'command'
+  | 'created_at'
+  | 'html'
+  | 'latest_reactions'
+  | 'own_reactions'
+  | 'quoted_message'
+  | 'reaction_counts'
+  | 'reply_count'
+  | 'type'
+  | 'updated_at'
+  | 'user'
+  | '__html';
+
+export type UpdatedMessage<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = Omit<
+  MessageResponse<StreamChatGenerics>,
   'mentioned_users'
 > & { mentioned_users?: string[] };
 
-export type User<UserType = UnknownType> = UserType & {
+export type User<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = StreamChatGenerics['userType'] & {
   id: string;
   anon?: boolean;
   name?: string;
@@ -2092,57 +2351,252 @@ export type User<UserType = UnknownType> = UserType & {
   username?: string;
 };
 
+export type TaskResponse = {
+  task_id: string;
+};
+
+export type DeleteChannelsResponse = {
+  result: Record<string, string>;
+} & Partial<TaskResponse>;
+
+export type DeleteType = 'soft' | 'hard';
+
+/*
+  DeleteUserOptions specifies a collection of one or more `user_ids` to be deleted.
+
+  `user` soft|hard determines if the user needs to be hard- or soft-deleted, where hard-delete
+  implies that all related objects (messages, flags, etc) will be hard-deleted as well.
+  `conversations` soft|hard will delete any 1to1 channels that the user was a member of.
+  `messages` soft-hard will delete any messages that the user has sent.
+  `new_channel_owner_id` any channels owned by the hard-deleted user will be transferred to this user ID
+ */
+export type DeleteUserOptions = {
+  user: DeleteType;
+  conversations?: DeleteType;
+  messages?: DeleteType;
+  new_channel_owner_id?: string;
+};
+
 export type SegmentData = {
   description: string;
-  // TODO: define this type in more detail
-  filter: {
-    channel?: object;
-    user?: object;
-  };
+  filter: {};
   name: string;
+  type: 'channel' | 'user';
 };
 
 export type Segment = {
-  app_pk: number;
   created_at: string;
   id: string;
+  in_use: boolean;
+  size: number;
+  status: 'computing' | 'ready';
   updated_at: string;
-  recipients?: number;
 } & SegmentData;
+
+export type CampaignSortField = {
+  field: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  value: any;
+};
+
+export type CampaignSort = {
+  fields: CampaignSortField[];
+  direction?: 'asc' | 'desc';
+};
+
+export type CampaignQueryOptions = {
+  limit?: number;
+  sort?: CampaignSort;
+};
+
+export type SegmentQueryOptions = CampaignQueryOptions;
+export type RecipientQueryOptions = CampaignQueryOptions;
+
+// TODO: add better typing
+export type SegmentFilters = {};
+export type CampaignFilters = {};
+export type RecipientFilters = {};
 
 export type CampaignData = {
   attachments: Attachment[];
+  channel_type: string;
   defaults: Record<string, string>;
   name: string;
   segment_id: string;
   text: string;
   description?: string;
-  push_notifications?: boolean;
   sender_id?: string;
 };
 
+export type CampaignStatusName = 'draft' | 'stopped' | 'scheduled' | 'completed' | 'failed' | 'in_progress';
+
 export type CampaignStatus = {
-  errors: string[];
-  status:
-    | 'draft'
-    | 'stopped'
-    | 'scheduled'
-    | 'completed'
-    | 'failed'
-    | 'canceled'
-    | 'in_progress';
+  status: CampaignStatusName;
   completed_at?: string;
+  errored_messages?: number;
   failed_at?: string;
-  progress?: number;
   resumed_at?: string;
   scheduled_at?: string;
+  scheduled_for?: string;
+  sent_messages?: number;
   stopped_at?: string;
+  task_id?: string;
 };
 
 export type Campaign = {
-  app_pk: string;
   created_at: string;
   id: string;
   updated_at: string;
 } & CampaignData &
   CampaignStatus;
+
+export type TestCampaignResponse = {
+  status: CampaignStatusName;
+  details?: string;
+  results?: Record<string, string>;
+};
+
+export type DeleteCampaignOptions = {
+  recipients?: boolean;
+};
+
+export type Recipient = {
+  campaign_id: string;
+  channel_cid: string;
+  created_at: string;
+  status: 'pending' | 'sent' | 'failed';
+  updated_at: string;
+  details?: string;
+  message_id?: string;
+  receiver_id?: string;
+};
+
+export type TaskStatus = {
+  created_at: string;
+  status: string;
+  task_id: string;
+  updated_at: string;
+  error?: {
+    description: string;
+    type: string;
+  };
+  result?: UR;
+};
+
+export type TruncateOptions<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
+  hard_delete?: boolean;
+  message?: Message<StreamChatGenerics>;
+  skip_push?: boolean;
+  truncated_at?: Date;
+  user?: UserResponse<StreamChatGenerics>;
+  user_id?: string;
+};
+
+export type CreateImportURLResponse = {
+  path: string;
+  upload_url: string;
+};
+
+export type CreateImportResponse = {
+  import_task: ImportTask;
+};
+
+export type GetImportResponse = {
+  import_task: ImportTask;
+};
+
+export type CreateImportOptions = {
+  mode: 'insert' | 'upsert';
+};
+
+export type ListImportsPaginationOptions = {
+  limit?: number;
+  offset?: number;
+};
+
+export type ListImportsResponse = {
+  import_tasks: ImportTask[];
+};
+
+export type ImportTaskHistory = {
+  created_at: string;
+  next_state: string;
+  prev_state: string;
+};
+
+export type ImportTask = {
+  created_at: string;
+  history: ImportTaskHistory[];
+  id: string;
+  path: string;
+  state: string;
+  updated_at: string;
+  result?: UR;
+  size?: number;
+};
+
+export type MessageSetType = 'latest' | 'current' | 'new';
+
+export type PushProviderUpsertResponse = {
+  push_provider: PushProvider;
+};
+
+export type PushProviderListResponse = {
+  push_providers: PushProvider[];
+};
+
+export type CreateCallOptions<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> = {
+  id: string;
+  type: string;
+  options?: UR;
+  user?: UserResponse<StreamChatGenerics> | null;
+  user_id?: string;
+};
+
+export type HMSCall = {
+  room: string;
+};
+
+export type AgoraCall = {
+  channel: string;
+};
+
+export type Call = {
+  id: string;
+  provider: string;
+  agora?: AgoraCall;
+  hms?: HMSCall;
+};
+
+export type CreateCallResponse = APIResponse & {
+  call: Call;
+  token: string;
+  agora_app_id?: string;
+  agora_uid?: number;
+};
+
+export type GetCallTokenResponse = APIResponse & {
+  token: string;
+  agora_app_id?: string;
+  agora_uid?: number;
+};
+
+type ErrorResponseDetails = {
+  code: number;
+  messages: string[];
+};
+
+export type APIErrorResponse = {
+  code: number;
+  duration: string;
+  message: string;
+  more_info: string;
+  StatusCode: number;
+  details?: ErrorResponseDetails;
+};
+
+export class ErrorFromResponse<T> extends Error {
+  code?: number;
+  response?: AxiosResponse<T>;
+  status?: number;
+}

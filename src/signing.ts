@@ -1,7 +1,7 @@
 import jwt, { Secret, SignOptions } from 'jsonwebtoken';
 import crypto from 'crypto';
 import { encodeBase64, decodeBase64 } from './base64';
-import { UnknownType } from './types';
+import { UR } from './types';
 
 /**
  * Creates the JWT token that can be used for a UserSession
@@ -10,21 +10,16 @@ import { UnknownType } from './types';
  * @private
  * @param {Secret} apiSecret - API Secret key
  * @param {string} userId - The user_id key in the JWT payload
- * @param {UnknownType} [extraData] - Extra that should be part of the JWT token
+ * @param {UR} [extraData] - Extra that should be part of the JWT token
  * @param {SignOptions} [jwtOptions] - Options that can be past to jwt.sign
  * @return {string} JWT Token
  */
-export function JWTUserToken(
-  apiSecret: Secret,
-  userId: string,
-  extraData: UnknownType = {},
-  jwtOptions: SignOptions = {},
-) {
+export function JWTUserToken(apiSecret: Secret, userId: string, extraData: UR = {}, jwtOptions: SignOptions = {}) {
   if (typeof userId !== 'string') {
     throw new TypeError('userId should be a string');
   }
 
-  const payload: { user_id: string } & UnknownType = {
+  const payload: { user_id: string } & UR = {
     user_id: userId,
     ...extraData,
   };
@@ -36,10 +31,7 @@ export function JWTUserToken(
     );
   }
 
-  const opts: SignOptions = Object.assign(
-    { algorithm: 'HS256', noTimestamp: true },
-    jwtOptions,
-  );
+  const opts: SignOptions = Object.assign({ algorithm: 'HS256', noTimestamp: true }, jwtOptions);
 
   if (payload.iat) {
     opts.noTimestamp = false;
@@ -52,10 +44,7 @@ export function JWTServerToken(apiSecret: Secret, jwtOptions: SignOptions = {}) 
     server: true,
   };
 
-  const opts: SignOptions = Object.assign(
-    { algorithm: 'HS256', noTimestamp: true },
-    jwtOptions,
-  );
+  const opts: SignOptions = Object.assign({ algorithm: 'HS256', noTimestamp: true }, jwtOptions);
   return jwt.sign(payload, apiSecret, opts);
 }
 
@@ -85,13 +74,18 @@ export function DevToken(userId: string) {
 
 /**
  *
- * @param {string} body the signed message
+ * @param {string | Buffer} body the signed message
  * @param {string} secret the shared secret used to generate the signature (Stream API secret)
  * @param {string} signature the signature to validate
  * @return {boolean}
  */
-export function CheckSignature(body: string, secret: string, signature: string) {
-  const key = Buffer.from(secret, 'ascii');
+export function CheckSignature(body: string | Buffer, secret: string, signature: string) {
+  const key = Buffer.from(secret, 'utf8');
   const hash = crypto.createHmac('sha256', key).update(body).digest('hex');
-  return hash === signature;
+
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(signature));
+  } catch {
+    return false;
+  }
 }

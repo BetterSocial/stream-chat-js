@@ -1,5 +1,4 @@
 import { ChannelState } from './channel_state';
-import { isValidEventType } from './events';
 import { logChatPromiseExecution, normalizeQuerySort } from './utils';
 import { StreamChat } from './client';
 import {
@@ -12,95 +11,80 @@ import {
   ChannelMemberResponse,
   ChannelQueryOptions,
   ChannelResponse,
+  ChannelUpdateOptions,
+  CreateCallOptions,
+  CreateCallResponse,
+  DefaultGenerics,
   DeleteChannelAPIResponse,
   Event,
   EventAPIResponse,
   EventHandler,
   EventTypes,
+  ExtendableGenerics,
   FormatMessageResponse,
   GetMultipleMessagesAPIResponse,
   GetReactionsAPIResponse,
   GetRepliesAPIResponse,
   InviteOptions,
-  LiteralStringForUnion,
   MarkReadOptions,
+  MarkUnreadOptions,
+  MemberSort,
   Message,
   MessageFilters,
+  MessagePaginationOptions,
   MessageResponse,
+  MessageSetType,
   MuteChannelAPIResponse,
-  PaginationOptions,
   PartialUpdateChannel,
   PartialUpdateChannelAPIResponse,
+  PinnedMessagePaginationOptions,
+  PinnedMessagesSort,
   QueryMembersOptions,
   Reaction,
   ReactionAPIResponse,
+  SearchAPIResponse,
+  SearchMessageSortBase,
   SearchOptions,
   SearchPayload,
-  SearchAPIResponse,
   SendMessageAPIResponse,
   TruncateChannelAPIResponse,
-  UnknownType,
+  TruncateOptions,
   UpdateChannelAPIResponse,
   UserFilters,
   UserResponse,
-  UserSort,
-  SearchMessageSortBase,
+  QueryChannelAPIResponse,
+  SendMessageOptions,
 } from './types';
 import { Role } from './permissions';
 
 /**
  * Channel - The Channel class manages it's own state.
  */
-export class Channel<
-  AttachmentType extends UnknownType = UnknownType,
-  ChannelType extends UnknownType = UnknownType,
-  CommandType extends string = LiteralStringForUnion,
-  EventType extends UnknownType = UnknownType,
-  MessageType extends UnknownType = UnknownType,
-  ReactionType extends UnknownType = UnknownType,
-  UserType extends UnknownType = UnknownType
-> {
-  _client: StreamChat<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    EventType,
-    MessageType,
-    ReactionType,
-    UserType
-  >;
+export class Channel<StreamChatGenerics extends ExtendableGenerics = DefaultGenerics> {
+  _client: StreamChat<StreamChatGenerics>;
   type: string;
   id: string | undefined;
-  data:
-    | ChannelData<ChannelType>
-    | ChannelResponse<ChannelType, CommandType, UserType>
-    | undefined;
-  _data: ChannelData<ChannelType> | ChannelResponse<ChannelType, CommandType, UserType>;
+  data: ChannelData<StreamChatGenerics> | ChannelResponse<StreamChatGenerics> | undefined;
+  _data: ChannelData<StreamChatGenerics> | ChannelResponse<StreamChatGenerics>;
   cid: string;
-  listeners: {
-    [key: string]: (
-      | string
-      | EventHandler<
-          AttachmentType,
-          ChannelType,
-          CommandType,
-          EventType,
-          MessageType,
-          ReactionType,
-          UserType
-        >
-    )[];
-  };
-  state: ChannelState<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    EventType,
-    MessageType,
-    ReactionType,
-    UserType
-  >;
+  /**  */
+  listeners: { [key: string]: (string | EventHandler<StreamChatGenerics>)[] };
+  state: ChannelState<StreamChatGenerics>;
+  /**
+   * This boolean is a vague indication of weather the channel exists on chat backend.
+   *
+   * If the value is true, then that means the channel has been initialized by either calling
+   * channel.create() or channel.query() or channel.watch().
+   *
+   * If the value is false, then channel may or may not exist on the backend. The only way to ensure
+   * is by calling channel.create() or channel.query() or channel.watch().
+   */
   initialized: boolean;
+  /**
+   * Indicates weather channel has been initialized by manually populating the state with some messages, members etc.
+   * Static state indicates that channel exists on backend, but is not being watched yet.
+   */
+  offlineMode: boolean;
   lastKeyStroke?: Date;
   lastTypingEvent: Date | null;
   isTyping: boolean;
@@ -109,26 +93,18 @@ export class Channel<
   /**
    * constructor - Create a channel
    *
-   * @param {StreamChat<AttachmentType, ChannelType, CommandType, EventType, MessageType, ReactionType, UserType>} client the chat client
+   * @param {StreamChat<StreamChatGenerics>} client the chat client
    * @param {string} type  the type of channel
    * @param {string} [id]  the id of the chat
-   * @param {ChannelData<ChannelType>} data any additional custom params
+   * @param {ChannelData<StreamChatGenerics>} data any additional custom params
    *
-   * @return {Channel<AttachmentType, ChannelType, CommandType, EventType, MessageType, ReactionType, UserType>} Returns a new uninitialized channel
+   * @return {Channel<StreamChatGenerics>} Returns a new uninitialized channel
    */
   constructor(
-    client: StreamChat<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
+    client: StreamChat<StreamChatGenerics>,
     type: string,
     id: string | undefined,
-    data: ChannelData<ChannelType>,
+    data: ChannelData<StreamChatGenerics>,
   ) {
     const validTypeRe = /^[\w_-]+$/;
     const validIDRe = /^[\w!_-]+$/;
@@ -150,16 +126,9 @@ export class Channel<
     this.cid = `${type}:${id}`;
     this.listeners = {};
     // perhaps the state variable should be private
-    this.state = new ChannelState<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >(this);
+    this.state = new ChannelState<StreamChatGenerics>(this);
     this.initialized = false;
+    this.offlineMode = false;
     this.lastTypingEvent = null;
     this.isTyping = false;
     this.disconnected = false;
@@ -168,17 +137,9 @@ export class Channel<
   /**
    * getClient - Get the chat client for this channel. If client.disconnect() was called, this function will error
    *
-   * @return {StreamChat<AttachmentType, ChannelType, CommandType, EventType, MessageType, ReactionType, UserType>}
+   * @return {StreamChat<StreamChatGenerics>}
    */
-  getClient(): StreamChat<
-    AttachmentType,
-    ChannelType,
-    CommandType,
-    EventType,
-    MessageType,
-    ReactionType,
-    UserType
-  > {
+  getClient(): StreamChat<StreamChatGenerics> {
     if (this.disconnected === true) {
       throw Error(`You can't use a channel after client.disconnect() was called`);
     }
@@ -186,40 +147,36 @@ export class Channel<
   }
 
   /**
-   * getConfig - Get the configs for this channel type
+   * getConfig - Get the config for this channel id (cid)
    *
    * @return {Record<string, unknown>}
    */
   getConfig() {
     const client = this.getClient();
-    return client.configs[this.type];
+    return client.configs[this.cid];
   }
 
   /**
    * sendMessage - Send a message to this channel
    *
-   * @param {Message<AttachmentType, MessageType, UserType>} message The Message object
-   * @param {{ skip_push?: boolean }} [options] Option object, {skip_push: true} to skip sending push notifications
+   * @param {Message<StreamChatGenerics>} message The Message object
+   * @param {boolean} [options.skip_enrich_url] Do not try to enrich the URLs within message
+   * @param {boolean} [options.skip_push] Skip sending push notifications
+   * @param {boolean} [options.is_pending_message] DEPRECATED, please use `pending` instead.
+   * @param {boolean} [options.pending] Make this message pending
+   * @param {Record<string,string>} [options.pending_message_metadata] Metadata for the pending message
+   * @param {boolean} [options.force_moderation] Apply force moderation for server-side requests
    *
-   * @return {Promise<SendMessageAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The Server Response
+   * @return {Promise<SendMessageAPIResponse<StreamChatGenerics>>} The Server Response
    */
-  async sendMessage(
-    message: Message<AttachmentType, MessageType, UserType>,
-    options?: { skip_push?: boolean },
-  ) {
-    const sendMessageResponse = await this.getClient().post<
-      SendMessageAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(this._channelURL() + '/message', {
-      message,
-      ...options,
-    });
+  async sendMessage(message: Message<StreamChatGenerics>, options?: SendMessageOptions) {
+    const sendMessageResponse = await this.getClient().post<SendMessageAPIResponse<StreamChatGenerics>>(
+      this._channelURL() + '/message',
+      {
+        message,
+        ...options,
+      },
+    );
 
     // Reset unreadCount to 0.
     this.state.unreadCount = 0;
@@ -231,30 +188,18 @@ export class Channel<
     uri: string | NodeJS.ReadableStream | Buffer | File,
     name?: string,
     contentType?: string,
-    user?: UserResponse<UserType>,
+    user?: UserResponse<StreamChatGenerics>,
   ) {
-    return this.getClient().sendFile(
-      `${this._channelURL()}/file`,
-      uri,
-      name,
-      contentType,
-      user,
-    );
+    return this.getClient().sendFile(`${this._channelURL()}/file`, uri, name, contentType, user);
   }
 
   sendImage(
     uri: string | NodeJS.ReadableStream | File,
     name?: string,
     contentType?: string,
-    user?: UserResponse<UserType>,
+    user?: UserResponse<StreamChatGenerics>,
   ) {
-    return this.getClient().sendFile(
-      `${this._channelURL()}/image`,
-      uri,
-      name,
-      contentType,
-      user,
-    );
+    return this.getClient().sendFile(`${this._channelURL()}/image`, uri, name, contentType, user);
   }
 
   deleteFile(url: string) {
@@ -268,33 +213,13 @@ export class Channel<
   /**
    * sendEvent - Send an event on this channel
    *
-   * @param {Event<AttachmentType, ChannelType, CommandType, EventType, MessageType, ReactionType, UserType>} event for example {type: 'message.read'}
+   * @param {Event<StreamChatGenerics>} event for example {type: 'message.read'}
    *
-   * @return {Promise<EventAPIResponse<AttachmentType, ChannelType, CommandType, EventType, MessageType, ReactionType, UserType>>} The Server Response
+   * @return {Promise<EventAPIResponse<StreamChatGenerics>>} The Server Response
    */
-  async sendEvent(
-    event: Event<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
-  ) {
+  async sendEvent(event: Event<StreamChatGenerics>) {
     this._checkInitialized();
-    return await this.getClient().post<
-      EventAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        EventType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(this._channelURL() + '/event', {
+    return await this.getClient().post<EventAPIResponse<StreamChatGenerics>>(this._channelURL() + '/event', {
       event,
     });
   }
@@ -302,57 +227,28 @@ export class Channel<
   /**
    * search - Query messages
    *
-   * @param {MessageFilters<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType> | string}  query search query or object MongoDB style filters
-   * @param {{client_id?: string; connection_id?: string; query?: string; message_filter_conditions?: MessageFilters<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>}} options Option object, {user_id: 'tommaso'}
+   * @param {MessageFilters<StreamChatGenerics> | string}  query search query or object MongoDB style filters
+   * @param {{client_id?: string; connection_id?: string; query?: string; message_filter_conditions?: MessageFilters<StreamChatGenerics>}} options Option object, {user_id: 'tommaso'}
    *
-   * @return {Promise<SearchAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} search messages response
+   * @return {Promise<SearchAPIResponse<StreamChatGenerics>>} search messages response
    */
   async search(
-    query:
-      | MessageFilters<
-          AttachmentType,
-          ChannelType,
-          CommandType,
-          MessageType,
-          ReactionType,
-          UserType
-        >
-      | string,
-    options: SearchOptions<MessageType> & {
+    query: MessageFilters<StreamChatGenerics> | string,
+    options: SearchOptions<StreamChatGenerics> & {
       client_id?: string;
       connection_id?: string;
-      message_filter_conditions?: MessageFilters<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >;
+      message_filter_conditions?: MessageFilters<StreamChatGenerics>;
       query?: string;
     } = {},
   ) {
-    if (options.offset && (options.sort || options.next)) {
-      throw Error(`Cannot specify offset with sort or next parameters`);
+    if (options.offset && options.next) {
+      throw Error(`Cannot specify offset with next`);
     }
     // Return a list of channels
-    const payload: SearchPayload<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      MessageType,
-      ReactionType,
-      UserType
-    > = {
-      filter_conditions: { cid: this.cid } as ChannelFilters<
-        ChannelType,
-        CommandType,
-        UserType
-      >,
+    const payload: SearchPayload<StreamChatGenerics> = {
+      filter_conditions: { cid: this.cid } as ChannelFilters<StreamChatGenerics>,
       ...options,
-      sort: options.sort
-        ? normalizeQuerySort<SearchMessageSortBase<MessageType>>(options.sort)
-        : undefined,
+      sort: options.sort ? normalizeQuerySort<SearchMessageSortBase<StreamChatGenerics>>(options.sort) : undefined,
     };
     if (typeof query === 'string') {
       payload.query = query;
@@ -364,16 +260,7 @@ export class Channel<
     // Make sure we wait for the connect promise if there is a pending one
     await this.getClient().wsPromise;
 
-    return await this.getClient().get<
-      SearchAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(this.getClient().baseURL + '/search', {
+    return await this.getClient().get<SearchAPIResponse<StreamChatGenerics>>(this.getClient().baseURL + '/search', {
       payload,
     });
   }
@@ -381,28 +268,28 @@ export class Channel<
   /**
    * queryMembers - Query Members
    *
-   * @param {UserFilters<UserType>}  filterConditions object MongoDB style filters
-   * @param {UserSort<UserType>} [sort] Sort options, for instance [{created_at: -1}].
-   * When using multiple fields, make sure you use array of objects to guarantee field order, for instance [{last_active: -1}, {created_at: 1}]
+   * @param {UserFilters<StreamChatGenerics>}  filterConditions object MongoDB style filters
+   * @param {MemberSort<StreamChatGenerics>} [sort] Sort options, for instance [{created_at: -1}].
+   * When using multiple fields, make sure you use array of objects to guarantee field order, for instance [{name: -1}, {created_at: 1}]
    * @param {{ limit?: number; offset?: number }} [options] Option object, {limit: 10, offset:10}
    *
-   * @return {Promise<ChannelMemberAPIResponse<UserType>>} Query Members response
+   * @return {Promise<ChannelMemberAPIResponse<StreamChatGenerics>>} Query Members response
    */
   async queryMembers(
-    filterConditions: UserFilters<UserType>,
-    sort: UserSort<UserType> = [],
+    filterConditions: UserFilters<StreamChatGenerics>,
+    sort: MemberSort<StreamChatGenerics> = [],
     options: QueryMembersOptions = {},
   ) {
     let id: string | undefined;
     const type = this.type;
-    let members: string[] | ChannelMemberResponse<UserType>[] | undefined;
+    let members: string[] | ChannelMemberResponse<StreamChatGenerics>[] | undefined;
     if (this.id) {
       id = this.id;
     } else if (this.data?.members && Array.isArray(this.data.members)) {
       members = this.data.members;
     }
     // Return a list of members
-    return await this.getClient().get<ChannelMemberAPIResponse<UserType>>(
+    return await this.getClient().get<ChannelMemberAPIResponse<StreamChatGenerics>>(
       this.getClient().baseURL + '/members',
       {
         payload: {
@@ -421,14 +308,14 @@ export class Channel<
    * sendReaction - Send a reaction about a message
    *
    * @param {string} messageID the message id
-   * @param {Reaction<ReactionType, UserType>} reaction the reaction object for instance {type: 'love'}
+   * @param {Reaction<StreamChatGenerics>} reaction the reaction object for instance {type: 'love'}
    * @param {{ enforce_unique?: boolean, skip_push?: boolean }} [options] Option object, {enforce_unique: true, skip_push: true} to override any existing reaction or skip sending push notifications
    *
-   * @return {Promise<ReactionAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The Server Response
+   * @return {Promise<ReactionAPIResponse<StreamChatGenerics>>} The Server Response
    */
   async sendReaction(
     messageID: string,
-    reaction: Reaction<ReactionType, UserType>,
+    reaction: Reaction<StreamChatGenerics>,
     options?: { enforce_unique?: boolean; skip_push?: boolean },
   ) {
     if (!messageID) {
@@ -437,19 +324,13 @@ export class Channel<
     if (!reaction || Object.keys(reaction).length === 0) {
       throw Error(`Reaction object is missing`);
     }
-    return await this.getClient().post<
-      ReactionAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(this.getClient().baseURL + `/messages/${messageID}/reaction`, {
-      reaction,
-      ...options,
-    });
+    return await this.getClient().post<ReactionAPIResponse<StreamChatGenerics>>(
+      this.getClient().baseURL + `/messages/${messageID}/reaction`,
+      {
+        reaction,
+        ...options,
+      },
+    );
   }
 
   /**
@@ -459,58 +340,35 @@ export class Channel<
    * @param {string} reactionType the type of reaction that should be removed
    * @param {string} [user_id] the id of the user (used only for server side request) default null
    *
-   * @return {Promise<ReactionAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The Server Response
+   * @return {Promise<ReactionAPIResponse<StreamChatGenerics>>} The Server Response
    */
   deleteReaction(messageID: string, reactionType: string, user_id?: string) {
     this._checkInitialized();
     if (!reactionType || !messageID) {
-      throw Error(
-        'Deleting a reaction requires specifying both the message and reaction type',
-      );
+      throw Error('Deleting a reaction requires specifying both the message and reaction type');
     }
 
-    const url =
-      this.getClient().baseURL + `/messages/${messageID}/reaction/${reactionType}`;
+    const url = this.getClient().baseURL + `/messages/${messageID}/reaction/${reactionType}`;
     //provided when server side request
     if (user_id) {
-      return this.getClient().delete<
-        ReactionAPIResponse<
-          AttachmentType,
-          ChannelType,
-          CommandType,
-          MessageType,
-          ReactionType,
-          UserType
-        >
-      >(url, { user_id });
+      return this.getClient().delete<ReactionAPIResponse<StreamChatGenerics>>(url, { user_id });
     }
 
-    return this.getClient().delete<
-      ReactionAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(url, {});
+    return this.getClient().delete<ReactionAPIResponse<StreamChatGenerics>>(url, {});
   }
 
   /**
    * update - Edit the channel's custom properties
    *
-   * @param {ChannelData<ChannelType>} channelData The object to update the custom properties of this channel with
-   * @param {Message<AttachmentType, MessageType, UserType>} [updateMessage] Optional message object for channel members notification
-   * @param {{ skip_push?: boolean }} [options] Option object, {skip_push: true} to skip sending push notifications
-   * @return {Promise<UpdateChannelAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The server response
+   * @param {ChannelData<StreamChatGenerics>} channelData The object to update the custom properties of this channel with
+   * @param {Message<StreamChatGenerics>} [updateMessage] Optional message object for channel members notification
+   * @param {ChannelUpdateOptions} [options] Option object, configuration to control the behavior while updating
+   * @return {Promise<UpdateChannelAPIResponse<StreamChatGenerics>>} The server response
    */
   async update(
-    channelData:
-      | Partial<ChannelData<ChannelType>>
-      | Partial<ChannelResponse<ChannelType, CommandType, UserType>> = {},
-    updateMessage?: Message<AttachmentType, MessageType, UserType>,
-    options?: { skip_push?: boolean },
+    channelData: Partial<ChannelData<StreamChatGenerics>> | Partial<ChannelResponse<StreamChatGenerics>> = {},
+    updateMessage?: Message<StreamChatGenerics>,
+    options?: ChannelUpdateOptions,
   ) {
     // Strip out reserved names that will result in API errors.
     const reserved = [
@@ -539,33 +397,27 @@ export class Channel<
   /**
    * updatePartial - partial update channel properties
    *
-   * @param {PartialUpdateChannel<ChannelType>} partial update request
+   * @param {PartialUpdateChannel<StreamChatGenerics>} partial update request
    *
-   * @return {Promise<PartialUpdateChannelAPIResponse<ChannelType,CommandType, UserType>>}
+   * @return {Promise<PartialUpdateChannelAPIResponse<StreamChatGenerics>>}
    */
-  async updatePartial(update: PartialUpdateChannel<ChannelType>) {
-    return await this.getClient().patch<
-      PartialUpdateChannelAPIResponse<ChannelType, CommandType, UserType>
-    >(this._channelURL(), update);
+  async updatePartial(update: PartialUpdateChannel<StreamChatGenerics>) {
+    const data = await this.getClient().patch<PartialUpdateChannelAPIResponse<StreamChatGenerics>>(
+      this._channelURL(),
+      update,
+    );
+    this.data = data.channel;
+    return data;
   }
 
   /**
    * enableSlowMode - enable slow mode
    *
    * @param {number} coolDownInterval the cooldown interval in seconds
-   * @return {Promise<UpdateChannelAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The server response
+   * @return {Promise<UpdateChannelAPIResponse<StreamChatGenerics>>} The server response
    */
   async enableSlowMode(coolDownInterval: number) {
-    const data = await this.getClient().post<
-      UpdateChannelAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(this._channelURL(), {
+    const data = await this.getClient().post<UpdateChannelAPIResponse<StreamChatGenerics>>(this._channelURL(), {
       cooldown: coolDownInterval,
     });
     this.data = data.channel;
@@ -575,19 +427,10 @@ export class Channel<
   /**
    * disableSlowMode - disable slow mode
    *
-   * @return {Promise<UpdateChannelAPIResponse<ChannelType, AttachmentType, MessageType, ReactionType, UserType>>} The server response
+   * @return {Promise<UpdateChannelAPIResponse<StreamChatGenerics>>} The server response
    */
   async disableSlowMode() {
-    const data = await this.getClient().post<
-      UpdateChannelAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(this._channelURL(), {
+    const data = await this.getClient().post<UpdateChannelAPIResponse<StreamChatGenerics>>(this._channelURL(), {
       cooldown: 0,
     });
     this.data = data.channel;
@@ -597,190 +440,142 @@ export class Channel<
   /**
    * delete - Delete the channel. Messages are permanently removed.
    *
-   * @return {Promise<DeleteChannelAPIResponse<ChannelType, CommandType, UserType>>} The server response
+   * @param {boolean} [options.hard_delete] Defines if the channel is hard deleted or not
+   *
+   * @return {Promise<DeleteChannelAPIResponse<StreamChatGenerics>>} The server response
    */
-  async delete() {
-    return await this.getClient().delete<
-      DeleteChannelAPIResponse<ChannelType, CommandType, UserType>
-    >(this._channelURL(), {});
+  async delete(options: { hard_delete?: boolean } = {}) {
+    return await this.getClient().delete<DeleteChannelAPIResponse<StreamChatGenerics>>(this._channelURL(), {
+      ...options,
+    });
   }
 
   /**
    * truncate - Removes all messages from the channel
-   *
-   * @return {Promise<TruncateChannelAPIResponse<ChannelType, CommandType, UserType>>} The server response
+   * @param {TruncateOptions<StreamChatGenerics>} [options] Defines truncation options
+   * @return {Promise<TruncateChannelAPIResponse<StreamChatGenerics>>} The server response
    */
-  async truncate() {
-    return await this.getClient().post<
-      TruncateChannelAPIResponse<ChannelType, CommandType, UserType>
-    >(this._channelURL() + '/truncate', {});
+  async truncate(options: TruncateOptions<StreamChatGenerics> = {}) {
+    return await this.getClient().post<TruncateChannelAPIResponse<StreamChatGenerics>>(
+      this._channelURL() + '/truncate',
+      options,
+    );
   }
 
   /**
    * acceptInvite - accept invitation to the channel
    *
-   * @param {InviteOptions<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>} [options] The object to update the custom properties of this channel with
+   * @param {InviteOptions<StreamChatGenerics>} [options] The object to update the custom properties of this channel with
    *
-   * @return {Promise<UpdateChannelAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The server response
+   * @return {Promise<UpdateChannelAPIResponse<StreamChatGenerics>>} The server response
    */
-  async acceptInvite(
-    options: InviteOptions<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      MessageType,
-      ReactionType,
-      UserType
-    > = {},
-  ) {
-    return await this._update({
-      accept_invite: true,
-      ...options,
-    });
+  async acceptInvite(options: InviteOptions<StreamChatGenerics> = {}) {
+    return await this._update({ accept_invite: true, ...options });
   }
 
   /**
    * rejectInvite - reject invitation to the channel
    *
-   * @param {InviteOptions<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>} [options] The object to update the custom properties of this channel with
+   * @param {InviteOptions<StreamChatGenerics>} [options] The object to update the custom properties of this channel with
    *
-   * @return {Promise<UpdateChannelAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The server response
+   * @return {Promise<UpdateChannelAPIResponse<StreamChatGenerics>>} The server response
    */
-  async rejectInvite(
-    options: InviteOptions<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      MessageType,
-      ReactionType,
-      UserType
-    > = {},
-  ) {
-    return await this._update({
-      reject_invite: true,
-      ...options,
-    });
+  async rejectInvite(options: InviteOptions<StreamChatGenerics> = {}) {
+    return await this._update({ reject_invite: true, ...options });
   }
 
   /**
    * addMembers - add members to the channel
    *
    * @param {{user_id: string, channel_role?: Role}[]} members An array of members to add to the channel
-   * @param {Message<AttachmentType, MessageType, UserType>} [message] Optional message object for channel members notification
-   * @return {Promise<UpdateChannelAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The server response
+   * @param {Message<StreamChatGenerics>} [message] Optional message object for channel members notification
+   * @param {ChannelUpdateOptions} [options] Option object, configuration to control the behavior while updating
+   * @return {Promise<UpdateChannelAPIResponse<StreamChatGenerics>>} The server response
    */
   async addMembers(
     members: string[] | { user_id: string; channel_role?: Role }[],
-    message?: Message<AttachmentType, MessageType, UserType>,
+    message?: Message<StreamChatGenerics>,
+    options: ChannelUpdateOptions = {},
   ) {
-    return await this._update({
-      add_members: members,
-      message,
-    });
+    return await this._update({ add_members: members, message, ...options });
   }
 
   /**
    * addModerators - add moderators to the channel
    *
    * @param {string[]} members An array of member identifiers
-   * @param {Message<AttachmentType, MessageType, UserType>} [message] Optional message object for channel members notification
-   * @return {Promise<UpdateChannelAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The server response
+   * @param {Message<StreamChatGenerics>} [message] Optional message object for channel members notification
+   * @param {ChannelUpdateOptions} [options] Option object, configuration to control the behavior while updating
+   * @return {Promise<UpdateChannelAPIResponse<StreamChatGenerics>>} The server response
    */
-  async addModerators(
-    members: string[],
-    message?: Message<AttachmentType, MessageType, UserType>,
-  ) {
-    return await this._update({
-      add_moderators: members,
-      message,
-    });
+  async addModerators(members: string[], message?: Message<StreamChatGenerics>, options: ChannelUpdateOptions = {}) {
+    return await this._update({ add_moderators: members, message, ...options });
   }
 
   /**
    * assignRoles - sets member roles in a channel
    *
    * @param {{channel_role: Role, user_id: string}[]} roles List of role assignments
-   * @param {Message<AttachmentType, MessageType, UserType>} [message] Optional message object for channel members notification
-   * @return {Promise<UpdateChannelAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The server response
+   * @param {Message<StreamChatGenerics>} [message] Optional message object for channel members notification
+   * @param {ChannelUpdateOptions} [options] Option object, configuration to control the behavior while updating
+   * @return {Promise<UpdateChannelAPIResponse<StreamChatGenerics>>} The server response
    */
   async assignRoles(
     roles: { channel_role: Role; user_id: string }[],
-    message?: Message<AttachmentType, MessageType, UserType>,
+    message?: Message<StreamChatGenerics>,
+    options: ChannelUpdateOptions = {},
   ) {
-    return await this._update({
-      assign_roles: roles,
-      message,
-    });
+    return await this._update({ assign_roles: roles, message, ...options });
   }
 
   /**
    * inviteMembers - invite members to the channel
    *
    * @param {{user_id: string, channel_role?: Role}[]} members An array of members to invite to the channel
-   * @param {Message<AttachmentType, MessageType, UserType>} [message] Optional message object for channel members notification
-   * @return {Promise<UpdateChannelAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The server response
+   * @param {Message<StreamChatGenerics>} [message] Optional message object for channel members notification
+   * @param {ChannelUpdateOptions} [options] Option object, configuration to control the behavior while updating
+   * @return {Promise<UpdateChannelAPIResponse<StreamChatGenerics>>} The server response
    */
   async inviteMembers(
     members: { user_id: string; channel_role?: Role }[] | string[],
-    message?: Message<AttachmentType, MessageType, UserType>,
+    message?: Message<StreamChatGenerics>,
+    options: ChannelUpdateOptions = {},
   ) {
-    return await this._update({
-      invites: members,
-      message,
-    });
+    return await this._update({ invites: members, message, ...options });
   }
 
   /**
    * removeMembers - remove members from channel
    *
    * @param {string[]} members An array of member identifiers
-   * @param {Message<AttachmentType, MessageType, UserType>} [message] Optional message object for channel members notification
-   * @return {Promise<UpdateChannelAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The server response
+   * @param {Message<StreamChatGenerics>} [message] Optional message object for channel members notification
+   * @param {ChannelUpdateOptions} [options] Option object, configuration to control the behavior while updating
+   * @return {Promise<UpdateChannelAPIResponse<StreamChatGenerics>>} The server response
    */
-  async removeMembers(
-    members: string[],
-    message?: Message<AttachmentType, MessageType, UserType>,
-  ) {
-    return await this._update({
-      remove_members: members,
-      message,
-    });
+  async removeMembers(members: string[], message?: Message<StreamChatGenerics>, options: ChannelUpdateOptions = {}) {
+    return await this._update({ remove_members: members, message, ...options });
   }
 
   /**
    * demoteModerators - remove moderator role from channel members
    *
    * @param {string[]} members An array of member identifiers
-   * @param {Message<AttachmentType, MessageType, UserType>} [message] Optional message object for channel members notification
-   * @return {Promise<UpdateChannelAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The server response
+   * @param {Message<StreamChatGenerics>} [message] Optional message object for channel members notification
+   * @param {ChannelUpdateOptions} [options] Option object, configuration to control the behavior while updating
+   * @return {Promise<UpdateChannelAPIResponse<StreamChatGenerics>>} The server response
    */
-  async demoteModerators(
-    members: string[],
-    message?: Message<AttachmentType, MessageType, UserType>,
-  ) {
-    return await this._update({
-      demote_moderators: members,
-      message,
-    });
+  async demoteModerators(members: string[], message?: Message<StreamChatGenerics>, options: ChannelUpdateOptions = {}) {
+    return await this._update({ demote_moderators: members, message, ...options });
   }
 
   /**
    * _update - executes channel update request
    * @param payload Object Update Channel payload
-   * @return {Promise<UpdateChannelAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The server response
+   * @return {Promise<UpdateChannelAPIResponse<StreamChatGenerics>>} The server response
    * TODO: introduce new type instead of Object in the next major update
    */
   async _update(payload: Object) {
-    const data = await this.getClient().post<
-      UpdateChannelAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(this._channelURL(), payload);
+    const data = await this.getClient().post<UpdateChannelAPIResponse<StreamChatGenerics>>(this._channelURL(), payload);
     this.data = data.channel;
     return data;
   }
@@ -788,7 +583,7 @@ export class Channel<
   /**
    * mute - mutes the current channel
    * @param {{ user_id?: string, expiration?: string }} opts expiration in minutes or user_id
-   * @return {Promise<MuteChannelAPIResponse<ChannelType, CommandType, UserType>>} The server response
+   * @return {Promise<MuteChannelAPIResponse<StreamChatGenerics>>} The server response
    *
    * example with expiration:
    * await channel.mute({expiration: moment.duration(2, 'weeks')});
@@ -798,12 +593,10 @@ export class Channel<
    *
    */
   async mute(opts: { expiration?: number; user_id?: string } = {}) {
-    return await this.getClient().post<
-      MuteChannelAPIResponse<ChannelType, CommandType, UserType>
-    >(this.getClient().baseURL + '/moderation/mute/channel', {
-      channel_cid: this.cid,
-      ...opts,
-    });
+    return await this.getClient().post<MuteChannelAPIResponse<StreamChatGenerics>>(
+      this.getClient().baseURL + '/moderation/mute/channel',
+      { channel_cid: this.cid, ...opts },
+    );
   }
 
   /**
@@ -815,13 +608,10 @@ export class Channel<
    * await channel.unmute({user_id: userId});
    */
   async unmute(opts: { user_id?: string } = {}) {
-    return await this.getClient().post<APIResponse>(
-      this.getClient().baseURL + '/moderation/unmute/channel',
-      {
-        channel_cid: this.cid,
-        ...opts,
-      },
-    );
+    return await this.getClient().post<APIResponse>(this.getClient().baseURL + '/moderation/unmute/channel', {
+      channel_cid: this.cid,
+      ...opts,
+    });
   }
 
   /**
@@ -842,21 +632,15 @@ export class Channel<
     if (!messageID) {
       throw Error(`Message id is missing`);
     }
-    return this.getClient().post<
-      SendMessageAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(this.getClient().baseURL + `/messages/${messageID}/action`, {
-      message_id: messageID,
-      form_data: formData,
-      id: this.id,
-      type: this.type,
-    });
+    return this.getClient().post<SendMessageAPIResponse<StreamChatGenerics>>(
+      this.getClient().baseURL + `/messages/${messageID}/action`,
+      {
+        message_id: messageID,
+        form_data: formData,
+        id: this.id,
+        type: this.type,
+      },
+    );
   }
 
   /**
@@ -879,7 +663,7 @@ export class Channel<
       await this.sendEvent({
         type: 'typing.start',
         parent_id,
-      } as Event<AttachmentType, ChannelType, CommandType, EventType, MessageType, ReactionType, UserType>);
+      } as Event<StreamChatGenerics>);
     }
   }
 
@@ -897,23 +681,23 @@ export class Channel<
     await this.sendEvent({
       type: 'typing.stop',
       parent_id,
-    } as Event<AttachmentType, ChannelType, CommandType, EventType, MessageType, ReactionType, UserType>);
+    } as Event<StreamChatGenerics>);
   }
 
   /**
    * lastMessage - return the last message, takes into account that last few messages might not be perfectly sorted
    *
-   * @return {ReturnType<ChannelState<AttachmentType, ChannelType, CommandType, EventType, MessageType, ReactionType, UserType>['formatMessage']> | undefined} Description
+   * @return {ReturnType<ChannelState<StreamChatGenerics>['formatMessage']> | undefined} Description
    */
   lastMessage() {
     // get last 5 messages, sort, return the latest
     // get a slice of the last 5
-    let min = this.state.messages.length - 5;
+    let min = this.state.latestMessages.length - 5;
     if (min < 0) {
       min = 0;
     }
-    const max = this.state.messages.length + 1;
-    const messageSlice = this.state.messages.slice(min, max);
+    const max = this.state.latestMessages.length + 1;
+    const messageSlice = this.state.latestMessages.slice(min, max);
 
     // sort by pk desc
     messageSlice.sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
@@ -924,27 +708,35 @@ export class Channel<
   /**
    * markRead - Send the mark read event for this user, only works if the `read_events` setting is enabled
    *
-   * @param {MarkReadOptions<UserType>} data
-   * @return {Promise<EventAPIResponse<AttachmentType, ChannelType, CommandType, EventType, MessageType, ReactionType, UserType> | null>} Description
+   * @param {MarkReadOptions<StreamChatGenerics>} data
+   * @return {Promise<EventAPIResponse<StreamChatGenerics> | null>} Description
    */
-  async markRead(data: MarkReadOptions<UserType> = {}) {
+  async markRead(data: MarkReadOptions<StreamChatGenerics> = {}) {
     this._checkInitialized();
 
     if (!this.getConfig()?.read_events) {
       return Promise.resolve(null);
     }
 
-    return await this.getClient().post<
-      EventAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        EventType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(this._channelURL() + '/read', {
+    return await this.getClient().post<EventAPIResponse<StreamChatGenerics>>(this._channelURL() + '/read', {
+      ...data,
+    });
+  }
+
+  /**
+   * markUnread - Mark the channel as unread from messageID, only works if the `read_events` setting is enabled
+   *
+   * @param {MarkUnreadOptions<StreamChatGenerics>} data
+   * @return {APIResponse} An API response
+   */
+  async markUnread(data: MarkUnreadOptions<StreamChatGenerics>) {
+    this._checkInitialized();
+
+    if (!this.getConfig()?.read_events) {
+      return Promise.resolve(null);
+    }
+
+    return await this.getClient().post<APIResponse>(this._channelURL() + '/unread', {
       ...data,
     });
   }
@@ -967,11 +759,11 @@ export class Channel<
   /**
    * watch - Loads the initial channel state and watches for changes
    *
-   * @param {ChannelQueryOptions<ChannelType, CommandType, UserType>} options additional options for the query endpoint
+   * @param {ChannelQueryOptions<StreamChatGenerics>} options additional options for the query endpoint
    *
-   * @return {Promise<ChannelAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The server response
+   * @return {Promise<QueryChannelAPIResponse<StreamChatGenerics>>} The server response
    */
-  async watch(options?: ChannelQueryOptions<ChannelType, CommandType, UserType>) {
+  async watch(options?: ChannelQueryOptions<StreamChatGenerics>) {
     const defaultOptions = {
       state: true,
       watch: true,
@@ -986,18 +778,14 @@ export class Channel<
     }
 
     const combined = { ...defaultOptions, ...options };
-    const state = await this.query(combined);
+    const state = await this.query(combined, 'latest');
     this.initialized = true;
     this.data = state.channel;
 
-    this._client.logger(
-      'info',
-      `channel:watch() - started watching channel ${this.cid}`,
-      {
-        tags: ['channel'],
-        channel: this,
-      },
-    );
+    this._client.logger('info', `channel:watch() - started watching channel ${this.cid}`, {
+      tags: ['channel'],
+      channel: this,
+    });
     return state;
   }
 
@@ -1007,19 +795,12 @@ export class Channel<
    * @return {Promise<APIResponse>} The server response
    */
   async stopWatching() {
-    const response = await this.getClient().post<APIResponse>(
-      this._channelURL() + '/stop-watching',
-      {},
-    );
+    const response = await this.getClient().post<APIResponse>(this._channelURL() + '/stop-watching', {});
 
-    this._client.logger(
-      'info',
-      `channel:watch() - stopped watching channel ${this.cid}`,
-      {
-        tags: ['channel'],
-        channel: this,
-      },
-    );
+    this._client.logger('info', `channel:watch() - stopped watching channel ${this.cid}`, {
+      tags: ['channel'],
+      channel: this,
+    });
 
     return response;
   }
@@ -1028,26 +809,20 @@ export class Channel<
    * getReplies - List the message replies for a parent message
    *
    * @param {string} parent_id The message parent id, ie the top of the thread
-   * @param {PaginationOptions & { user?: UserResponse<UserType>; user_id?: string }} options Pagination params, ie {limit:10, id_lte: 10}
+   * @param {MessagePaginationOptions & { user?: UserResponse<StreamChatGenerics>; user_id?: string }} options Pagination params, ie {limit:10, id_lte: 10}
    *
-   * @return {Promise<GetRepliesAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} A response with a list of messages
+   * @return {Promise<GetRepliesAPIResponse<StreamChatGenerics>>} A response with a list of messages
    */
   async getReplies(
     parent_id: string,
-    options: PaginationOptions & { user?: UserResponse<UserType>; user_id?: string },
+    options: MessagePaginationOptions & { user?: UserResponse<StreamChatGenerics>; user_id?: string },
   ) {
-    const data = await this.getClient().get<
-      GetRepliesAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(this.getClient().baseURL + `/messages/${parent_id}/replies`, {
-      ...options,
-    });
+    const data = await this.getClient().get<GetRepliesAPIResponse<StreamChatGenerics>>(
+      this.getClient().baseURL + `/messages/${parent_id}/replies`,
+      {
+        ...options,
+      },
+    );
 
     // add any messages to our thread state
     if (data.messages) {
@@ -1058,15 +833,38 @@ export class Channel<
   }
 
   /**
+   * getPinnedMessages - List list pinned messages of the channel
+   *
+   * @param {PinnedMessagePaginationOptions & { user?: UserResponse<StreamChatGenerics>; user_id?: string }} options Pagination params, ie {limit:10, id_lte: 10}
+   * @param {PinnedMessagesSort} sort defines sorting direction of pinned messages
+   *
+   * @return {Promise<GetRepliesAPIResponse<StreamChatGenerics>>} A response with a list of messages
+   */
+  async getPinnedMessages(
+    options: PinnedMessagePaginationOptions & { user?: UserResponse<StreamChatGenerics>; user_id?: string },
+    sort: PinnedMessagesSort = [],
+  ) {
+    return await this.getClient().get<GetRepliesAPIResponse<StreamChatGenerics>>(
+      this.getClient().baseURL + `/channels/${this.type}/${this.id}/pinned_messages`,
+      {
+        payload: {
+          ...options,
+          sort: normalizeQuerySort(sort),
+        },
+      },
+    );
+  }
+
+  /**
    * getReactions - List the reactions, supports pagination
    *
    * @param {string} message_id The message id
    * @param {{ limit?: number; offset?: number }} options The pagination options
    *
-   * @return {Promise<GetReactionsAPIResponse<ReactionType, UserType>>} Server response
+   * @return {Promise<GetReactionsAPIResponse<StreamChatGenerics>>} Server response
    */
   getReactions(message_id: string, options: { limit?: number; offset?: number }) {
-    return this.getClient().get<GetReactionsAPIResponse<ReactionType, UserType>>(
+    return this.getClient().get<GetReactionsAPIResponse<StreamChatGenerics>>(
       this.getClient().baseURL + `/messages/${message_id}/reactions`,
       {
         ...options,
@@ -1079,19 +877,10 @@ export class Channel<
    *
    * @param {string[]} messageIds The ids of the messages to retrieve from this channel
    *
-   * @return {Promise<GetMultipleMessagesAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} Server response
+   * @return {Promise<GetMultipleMessagesAPIResponse<StreamChatGenerics>>} Server response
    */
   getMessagesById(messageIds: string[]) {
-    return this.getClient().get<
-      GetMultipleMessagesAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(this._channelURL() + '/messages', {
+    return this.getClient().get<GetMultipleMessagesAPIResponse<StreamChatGenerics>>(this._channelURL() + '/messages', {
       ids: messageIds.join(','),
     });
   }
@@ -1101,36 +890,22 @@ export class Channel<
    * @return {Date | null | undefined}
    */
   lastRead() {
-    this._checkInitialized();
     const { userID } = this.getClient();
     if (userID) {
       return this.state.read[userID] ? this.state.read[userID].last_read : null;
     }
   }
 
-  _countMessageAsUnread(
-    message:
-      | FormatMessageResponse<
-          AttachmentType,
-          ChannelType,
-          CommandType,
-          MessageType,
-          ReactionType,
-          UserType
-        >
-      | MessageResponse<
-          AttachmentType,
-          ChannelType,
-          CommandType,
-          MessageType,
-          ReactionType,
-          UserType
-        >,
-  ) {
+  _countMessageAsUnread(message: FormatMessageResponse<StreamChatGenerics> | MessageResponse<StreamChatGenerics>) {
     if (message.shadowed) return false;
     if (message.silent) return false;
+    if (message.parent_id && !message.show_in_channel) return false;
     if (message.user?.id === this.getClient().userID) return false;
-    if (message.user?.id && this.getClient().userMuteStatus(message.user.id))
+    if (message.user?.id && this.getClient().userMuteStatus(message.user.id)) return false;
+    if (message.type === 'system') return false;
+
+    // Return false if channel doesn't allow read events.
+    if (Array.isArray(this.data?.own_capabilities) && !this.data?.own_capabilities.includes('read-events'))
       return false;
 
     if (this.muteStatus().muted) return false;
@@ -1149,8 +924,8 @@ export class Channel<
     if (!lastRead) return this.state.unreadCount;
 
     let count = 0;
-    for (let i = 0; i < this.state.messages.length; i += 1) {
-      const message = this.state.messages[i];
+    for (let i = 0; i < this.state.latestMessages.length; i += 1) {
+      const message = this.state.latestMessages[i];
       if (message.created_at > lastRead && this._countMessageAsUnread(message)) {
         count++;
       }
@@ -1159,7 +934,7 @@ export class Channel<
   }
 
   /**
-   * countUnread - Count the number of unread messages mentioning the current user
+   * countUnreadMentions - Count the number of unread messages mentioning the current user
    *
    * @return {number} Unread mentions count
    */
@@ -1168,8 +943,8 @@ export class Channel<
     const userID = this.getClient().userID;
 
     let count = 0;
-    for (let i = 0; i < this.state.messages.length; i += 1) {
-      const message = this.state.messages[i];
+    for (let i = 0; i < this.state.latestMessages.length; i += 1) {
+      const message = this.state.latestMessages[i];
       if (
         this._countMessageAsUnread(message) &&
         (!lastRead || message.created_at > lastRead) &&
@@ -1184,25 +959,31 @@ export class Channel<
   /**
    * create - Creates a new channel
    *
-   * @return {Promise<ChannelAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} The Server Response
+   * @return {Promise<QueryChannelAPIResponse<StreamChatGenerics>>} The Server Response
+   *
    */
-  create = async () => {
-    const options = {
+  create = async (options?: ChannelQueryOptions<StreamChatGenerics>) => {
+    const defaultOptions = {
+      ...options,
       watch: false,
       state: false,
       presence: false,
     };
-    return await this.query(options);
+    return await this.query(defaultOptions, 'latest');
   };
 
   /**
    * query - Query the API, get messages, members or other channel fields
    *
-   * @param {ChannelQueryOptions<ChannelType, CommandType, UserType>} options The query options
+   * @param {ChannelQueryOptions<StreamChatGenerics>} options The query options
+   * @param {MessageSetType} messageSetToAddToIfDoesNotExist It's possible to load disjunct sets of a channel's messages into state, use `current` to load the initial channel state or if you want to extend the currently displayed messages, use `latest` if you want to load/extend the latest messages, `new` is used for loading a specific message and it's surroundings
    *
-   * @return {Promise<ChannelAPIResponse<AttachmentType, ChannelType, CommandType, MessageType, ReactionType, UserType>>} Returns a query response
+   * @return {Promise<QueryChannelAPIResponse<StreamChatGenerics>>} Returns a query response
    */
-  async query(options: ChannelQueryOptions<ChannelType, CommandType, UserType>) {
+  async query(
+    options: ChannelQueryOptions<StreamChatGenerics>,
+    messageSetToAddToIfDoesNotExist: MessageSetType = 'current',
+  ) {
     // Make sure we wait for the connect promise if there is a pending one
     await this.getClient().wsPromise;
 
@@ -1211,16 +992,7 @@ export class Channel<
       queryURL += `/${this.id}`;
     }
 
-    const state = await this.getClient().post<
-      ChannelAPIResponse<
-        AttachmentType,
-        ChannelType,
-        CommandType,
-        MessageType,
-        ReactionType,
-        UserType
-      >
-    >(queryURL + '/query', {
+    const state = await this.getClient().post<QueryChannelAPIResponse<StreamChatGenerics>>(queryURL + '/query', {
       data: this._data,
       state: true,
       ...options,
@@ -1249,10 +1021,21 @@ export class Channel<
       }
     }
 
-    this.getClient()._addChannelConfig(state);
+    this.getClient()._addChannelConfig(state.channel);
 
     // add any messages to our channel state
-    this._initializeState(state);
+    const { messageSet } = this._initializeState(state, messageSetToAddToIfDoesNotExist);
+
+    this.data = state.channel;
+    this.offlineMode = false;
+
+    this.getClient().dispatchEvent({
+      type: 'channels.queried',
+      queriedChannels: {
+        channels: [state],
+        isLatestMessageSet: messageSet.isLatest,
+      },
+    });
 
     return state;
   }
@@ -1261,10 +1044,10 @@ export class Channel<
    * banUser - Bans a user from a channel
    *
    * @param {string} targetUserID
-   * @param {BanUserOptions<UserType>} options
+   * @param {BanUserOptions<StreamChatGenerics>} options
    * @returns {Promise<APIResponse>}
    */
-  async banUser(targetUserID: string, options: BanUserOptions<UserType>) {
+  async banUser(targetUserID: string, options: BanUserOptions<StreamChatGenerics>) {
     this._checkInitialized();
     return await this.getClient().banUser(targetUserID, {
       ...options,
@@ -1321,10 +1104,10 @@ export class Channel<
    * shadowBan - Shadow bans a user from a channel
    *
    * @param {string} targetUserID
-   * @param {BanUserOptions<UserType>} options
+   * @param {BanUserOptions<StreamChatGenerics>} options
    * @returns {Promise<APIResponse>}
    */
-  async shadowBan(targetUserID: string, options: BanUserOptions<UserType>) {
+  async shadowBan(targetUserID: string, options: BanUserOptions<StreamChatGenerics>) {
     this._checkInitialized();
     return await this.getClient().shadowBan(targetUserID, {
       ...options,
@@ -1348,87 +1131,49 @@ export class Channel<
   }
 
   /**
+   * createCall - creates a call for the current channel
+   *
+   * @param {CreateCallOptions} options
+   * @returns {Promise<CreateCallResponse>}
+   */
+  async createCall(options: CreateCallOptions) {
+    return await this.getClient().post<CreateCallResponse>(this._channelURL() + '/call', options);
+  }
+
+  /**
    * on - Listen to events on this channel.
    *
    * channel.on('message.new', event => {console.log("my new message", event, channel.state.messages)})
    * or
    * channel.on(event => {console.log(event.type)})
    *
-   * @param {EventHandler<AttachmentType, ChannelType, CommandType, EventType, MessageType, ReactionType, UserType> | EventTypes} callbackOrString  The event type to listen for (optional)
-   * @param {EventHandler<AttachmentType, ChannelType, CommandType, EventType, MessageType, ReactionType, UserType>} [callbackOrNothing] The callback to call
+   * @param {EventHandler<StreamChatGenerics> | EventTypes} callbackOrString  The event type to listen for (optional)
+   * @param {EventHandler<StreamChatGenerics>} [callbackOrNothing] The callback to call
    */
+  on(eventType: EventTypes, callback: EventHandler<StreamChatGenerics>): { unsubscribe: () => void };
+  on(callback: EventHandler<StreamChatGenerics>): { unsubscribe: () => void };
   on(
-    eventType: EventTypes,
-    callback: EventHandler<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
-  ): { unsubscribe: () => void };
-  on(
-    callback: EventHandler<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
-  ): { unsubscribe: () => void };
-  on(
-    callbackOrString:
-      | EventHandler<
-          AttachmentType,
-          ChannelType,
-          CommandType,
-          EventType,
-          MessageType,
-          ReactionType,
-          UserType
-        >
-      | EventTypes,
-    callbackOrNothing?: EventHandler<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
+    callbackOrString: EventHandler<StreamChatGenerics> | EventTypes,
+    callbackOrNothing?: EventHandler<StreamChatGenerics>,
   ): { unsubscribe: () => void } {
     const key = callbackOrNothing ? (callbackOrString as string) : 'all';
-    const valid = isValidEventType(key);
-    if (!valid) {
-      throw Error(`Invalid event type ${key}`);
-    }
     const callback = callbackOrNothing ? callbackOrNothing : callbackOrString;
     if (!(key in this.listeners)) {
       this.listeners[key] = [];
     }
-    this._client.logger(
-      'info',
-      `Attaching listener for ${key} event on channel ${this.cid}`,
-      {
-        tags: ['event', 'channel'],
-        channel: this,
-      },
-    );
+    this._client.logger('info', `Attaching listener for ${key} event on channel ${this.cid}`, {
+      tags: ['event', 'channel'],
+      channel: this,
+    });
 
     this.listeners[key].push(callback);
 
     return {
       unsubscribe: () => {
-        this._client.logger(
-          'info',
-          `Removing listener for ${key} event from channel ${this.cid}`,
-          { tags: ['event', 'channel'], channel: this },
-        );
+        this._client.logger('info', `Removing listener for ${key} event from channel ${this.cid}`, {
+          tags: ['event', 'channel'],
+          channel: this,
+        });
 
         this.listeners[key] = this.listeners[key].filter((el) => el !== callback);
       },
@@ -1439,81 +1184,27 @@ export class Channel<
    * off - Remove the event handler
    *
    */
+  off(eventType: EventTypes, callback: EventHandler<StreamChatGenerics>): void;
+  off(callback: EventHandler<StreamChatGenerics>): void;
   off(
-    eventType: EventTypes,
-    callback: EventHandler<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
-  ): void;
-  off(
-    callback: EventHandler<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
-  ): void;
-  off(
-    callbackOrString:
-      | EventHandler<
-          AttachmentType,
-          ChannelType,
-          CommandType,
-          EventType,
-          MessageType,
-          ReactionType,
-          UserType
-        >
-      | EventTypes,
-    callbackOrNothing?: EventHandler<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
+    callbackOrString: EventHandler<StreamChatGenerics> | EventTypes,
+    callbackOrNothing?: EventHandler<StreamChatGenerics>,
   ): void {
     const key = callbackOrNothing ? (callbackOrString as string) : 'all';
-    const valid = isValidEventType(key);
-    if (!valid) {
-      throw Error(`Invalid event type ${key}`);
-    }
     const callback = callbackOrNothing ? callbackOrNothing : callbackOrString;
     if (!(key in this.listeners)) {
       this.listeners[key] = [];
     }
 
-    this._client.logger(
-      'info',
-      `Removing listener for ${key} event from channel ${this.cid}`,
-      { tags: ['event', 'channel'], channel: this },
-    );
+    this._client.logger('info', `Removing listener for ${key} event from channel ${this.cid}`, {
+      tags: ['event', 'channel'],
+      channel: this,
+    });
     this.listeners[key] = this.listeners[key].filter((value) => value !== callback);
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  _handleChannelEvent(
-    event: Event<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
-  ) {
+  _handleChannelEvent(event: Event<StreamChatGenerics>) {
     const channel = this;
     this._client.logger(
       'info',
@@ -1537,11 +1228,13 @@ export class Channel<
         }
         break;
       case 'message.read':
-        if (event.user?.id) {
+        if (event.user?.id && event.created_at) {
           channelState.read[event.user.id] = {
             // because in client.ts the handleEvent call that flows to this sets this `event.received_at = new Date();`
-            last_read: event.received_at as Date,
+            last_read: new Date(event.created_at),
+            last_read_message_id: event.last_read_message_id,
             user: event.user,
+            unread_messages: 0,
           };
 
           if (event.user?.id === this.getClient().user?.id) {
@@ -1562,6 +1255,7 @@ export class Channel<
         break;
       case 'message.deleted':
         if (event.message) {
+          this._extendEventWithOwnReactions(event);
           if (event.hard_delete) channelState.removeMessage(event.message);
           else channelState.addMessageSorted(event.message, false, false);
 
@@ -1576,8 +1270,7 @@ export class Channel<
         if (event.message) {
           /* if message belongs to current user, always assume timestamp is changed to filter it out and add again to avoid duplication */
           const ownMessage = event.user?.id === this.getClient().user?.id;
-          const isThreadMessage =
-            event.message.parent_id && !event.message.show_in_channel;
+          const isThreadMessage = event.message.parent_id && !event.message.show_in_channel;
 
           if (this.state.isUpToDate || isThreadMessage) {
             channelState.addMessageSorted(event.message, ownMessage);
@@ -1586,12 +1279,22 @@ export class Channel<
             channelState.addPinnedMessage(event.message);
           }
 
-          if (ownMessage && event.user?.id) {
+          if (event.user?.id) {
+            for (const userId in channelState.read) {
+              if (userId === event.user.id) {
+                channelState.read[event.user.id] = {
+                  last_read: new Date(event.created_at as string),
+                  user: event.user,
+                  unread_messages: 0,
+                };
+              } else {
+                channelState.read[userId].unread_messages += 1;
+              }
+            }
+          }
+
+          if (ownMessage) {
             channelState.unreadCount = 0;
-            channelState.read[event.user.id] = {
-              last_read: new Date(event.created_at as string),
-              user: event.user,
-            };
           } else if (this._countMessageAsUnread(event.message)) {
             channelState.unreadCount = channelState.unreadCount + 1;
           }
@@ -1599,6 +1302,7 @@ export class Channel<
         break;
       case 'message.updated':
         if (event.message) {
+          this._extendEventWithOwnReactions(event);
           channelState.addMessageSorted(event.message, false, false);
           if (event.message.pinned) {
             channelState.addPinnedMessage(event.message);
@@ -1608,8 +1312,31 @@ export class Channel<
         }
         break;
       case 'channel.truncated':
-        channelState.clearMessages();
+        if (event.channel?.truncated_at) {
+          const truncatedAt = +new Date(event.channel.truncated_at);
+
+          channelState.messageSets.forEach((messageSet, messageSetIndex) => {
+            messageSet.messages.forEach(({ created_at: createdAt, id }) => {
+              if (truncatedAt > +createdAt) channelState.removeMessage({ id, messageSetIndex });
+            });
+          });
+
+          channelState.pinnedMessages.forEach(({ id, created_at: createdAt }) => {
+            if (truncatedAt > +createdAt)
+              channelState.removePinnedMessage({ id } as MessageResponse<StreamChatGenerics>);
+          });
+        } else {
+          channelState.clearMessages();
+        }
+
         channelState.unreadCount = 0;
+        // system messages don't increment unread counts
+        if (event.message) {
+          channelState.addMessageSorted(event.message);
+          if (event.message.pinned) {
+            channelState.addPinnedMessage(event.message);
+          }
+        }
         break;
       case 'member.added':
       case 'member.updated':
@@ -1624,7 +1351,11 @@ export class Channel<
         break;
       case 'channel.updated':
         if (event.channel) {
-          channel.data = event.channel;
+          channel.data = {
+            ...event.channel,
+            hidden: event.channel?.hidden ?? channel.data?.hidden,
+            own_capabilities: event.channel?.own_capabilities ?? channel.data?.own_capabilities,
+          };
         }
         break;
       case 'reaction.new':
@@ -1644,9 +1375,31 @@ export class Channel<
         }
         break;
       case 'channel.hidden':
+        channel.data = { ...channel.data, hidden: true };
         if (event.clear_history) {
           channelState.clearMessages();
         }
+        break;
+      case 'channel.visible':
+        channel.data = { ...channel.data, hidden: false };
+        break;
+      case 'user.banned':
+        if (!event.user?.id) break;
+        channelState.members[event.user.id] = {
+          ...(channelState.members[event.user.id] || {}),
+          shadow_banned: !!event.shadow,
+          banned: !event.shadow,
+          user: { ...(channelState.members[event.user.id]?.user || {}), ...event.user },
+        };
+        break;
+      case 'user.unbanned':
+        if (!event.user?.id) break;
+        channelState.members[event.user.id] = {
+          ...(channelState.members[event.user.id] || {}),
+          shadow_banned: false,
+          banned: false,
+          user: { ...(channelState.members[event.user.id]?.user || {}), ...event.user },
+        };
         break;
       default:
     }
@@ -1657,17 +1410,7 @@ export class Channel<
     }
   }
 
-  _callChannelListeners = (
-    event: Event<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      EventType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
-  ) => {
+  _callChannelListeners = (event: Event<StreamChatGenerics>) => {
     const channel = this;
     // gather and call the listeners
     const listeners = [];
@@ -1699,7 +1442,7 @@ export class Channel<
   };
 
   _checkInitialized() {
-    if (!this.initialized && !this.getClient()._isUsingServerAuth()) {
+    if (!this.initialized && !this.offlineMode && !this.getClient()._isUsingServerAuth()) {
       throw Error(
         `Channel ${this.cid} hasn't been initialized yet. Make sure to call .watch() and wait for it to resolve`,
       );
@@ -1708,14 +1451,8 @@ export class Channel<
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   _initializeState(
-    state: ChannelAPIResponse<
-      AttachmentType,
-      ChannelType,
-      CommandType,
-      MessageType,
-      ReactionType,
-      UserType
-    >,
+    state: ChannelAPIResponse<StreamChatGenerics>,
+    messageSetToAddToIfDoesNotExist: MessageSetType = 'latest',
   ) {
     const { state: clientState, user, userID } = this.getClient();
 
@@ -1732,13 +1469,17 @@ export class Channel<
 
     const messages = state.messages || [];
     if (!this.state.messages) {
-      this.state.messages = [];
+      this.state.initMessages();
     }
-    this.state.addMessagesSorted(messages, false, true);
+    const { messageSet } = this.state.addMessagesSorted(messages, false, true, true, messageSetToAddToIfDoesNotExist);
+
     if (!this.state.pinnedMessages) {
       this.state.pinnedMessages = [];
     }
     this.state.addPinnedMessages(state.pinned_messages || []);
+    if (state.pending_messages) {
+      this.state.pending_messages = state.pending_messages;
+    }
     this.state.watcher_count = state.watcher_count || 0;
     // convert the arrays into objects for easier syncing...
     if (state.watchers) {
@@ -1759,6 +1500,7 @@ export class Channel<
         this.state.read[user.id] = {
           user,
           last_read,
+          unread_messages: 0,
         };
       }
     }
@@ -1766,32 +1508,48 @@ export class Channel<
     // apply read state if part of the state
     if (state.read) {
       for (const read of state.read) {
-        const parsedRead = { ...read, last_read: new Date(read.last_read) };
-        this.state.read[read.user.id] = parsedRead;
-        if (read.user.id === user?.id && typeof parsedRead.unread_messages === 'number') {
-          this.state.unreadCount = parsedRead.unread_messages;
+        this.state.read[read.user.id] = {
+          last_read: new Date(read.last_read),
+          last_read_message_id: read.last_read_message_id,
+          unread_messages: read.unread_messages ?? 0,
+          user: read.user,
+        };
+
+        if (read.user.id === user?.id) {
+          this.state.unreadCount = this.state.read[read.user.id].unread_messages;
         }
       }
     }
 
     if (state.members) {
-      for (const member of state.members) {
+      this.state.members = state.members.reduce((acc, member) => {
         if (member.user) {
-          this.state.members[member.user.id] = member;
+          acc[member.user.id] = member;
         }
-      }
+        return acc;
+      }, {} as ChannelState<StreamChatGenerics>['members']);
+    }
+
+    return {
+      messageSet,
+    };
+  }
+
+  _extendEventWithOwnReactions(event: Event<StreamChatGenerics>) {
+    if (!event.message) {
+      return;
+    }
+    const message = this.state.findMessage(event.message.id, event.message.parent_id);
+    if (message) {
+      event.message.own_reactions = message.own_reactions;
     }
   }
 
   _disconnect() {
-    this._client.logger(
-      'info',
-      `channel:disconnect() - Disconnecting the channel ${this.cid}`,
-      {
-        tags: ['connection', 'channel'],
-        channel: this,
-      },
-    );
+    this._client.logger('info', `channel:disconnect() - Disconnecting the channel ${this.cid}`, {
+      tags: ['connection', 'channel'],
+      channel: this,
+    });
 
     this.disconnected = true;
     this.state.setIsUpToDate(false);

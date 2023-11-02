@@ -1,7 +1,7 @@
 import babel from '@rollup/plugin-babel';
 import external from 'rollup-plugin-peer-deps-external';
 import commonjs from '@rollup/plugin-commonjs';
-import replace from 'rollup-plugin-replace';
+import replace from '@rollup/plugin-replace';
 import { terser } from 'rollup-plugin-terser';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 
@@ -10,21 +10,12 @@ import pkg from './package.json';
 import process from 'process';
 process.env.NODE_ENV = 'production';
 
-const externalPackages = [
-	'axios',
-	'form-data',
-	'isomorphic-ws',
-	'base64-js',
-	'@react-native-async-storage/async-storage',
-	/@babel\/runtime/,
-];
+const externalPackages = ['axios', 'form-data', 'isomorphic-ws', 'base64-js', /@babel\/runtime/];
 
 const browserIgnore = {
 	name: 'browser-remapper',
-	resolveId: (importee) =>
-		['jsonwebtoken', 'https', 'crypto'].includes(importee) ? importee : null,
-	load: (id) =>
-		['jsonwebtoken', 'https', 'crypto'].includes(id) ? 'export default null;' : null,
+	resolveId: (importee) => (['jsonwebtoken', 'https', 'crypto'].includes(importee) ? importee : null),
+	load: (id) => (['jsonwebtoken', 'https', 'crypto'].includes(id) ? 'export default null;' : null),
 };
 
 const extensions = ['.mjs', '.json', '.node', '.js', '.ts'];
@@ -58,7 +49,7 @@ const normalBundle = {
 	],
 	external: externalPackages.concat(['https', 'jsonwebtoken', 'crypto']),
 	plugins: [
-		replace({ 'process.env.PKG_VERSION': JSON.stringify(pkg.version) }),
+		replace({ preventAssignment: true, 'process.env.PKG_VERSION': JSON.stringify(pkg.version) }),
 		external(),
 		nodeResolve({ extensions }),
 		babel(babelConfig),
@@ -82,7 +73,7 @@ const browserBundle = {
 	],
 	external: externalPackages,
 	plugins: [
-		replace({ 'process.env.PKG_VERSION': JSON.stringify(pkg.version) }),
+		replace({ preventAssignment: true, 'process.env.PKG_VERSION': JSON.stringify(pkg.version) }),
 		browserIgnore,
 		external(),
 		nodeResolve({ extensions }),
@@ -102,7 +93,7 @@ const fullBrowserBundle = {
 		},
 	],
 	plugins: [
-		replace({ 'process.env.PKG_VERSION': JSON.stringify(pkg.version) }),
+		replace({ preventAssignment: true, 'process.env.PKG_VERSION': JSON.stringify(pkg.version) }),
 		browserIgnore,
 		external(),
 		nodeResolve({ extensions, browser: true }),
@@ -113,6 +104,4 @@ const fullBrowserBundle = {
 };
 
 export default () =>
-	process.env.ROLLUP_WATCH
-		? [normalBundle, browserBundle]
-		: [normalBundle, browserBundle, fullBrowserBundle];
+	process.env.ROLLUP_WATCH ? [normalBundle, browserBundle] : [normalBundle, browserBundle, fullBrowserBundle];

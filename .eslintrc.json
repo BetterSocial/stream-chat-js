@@ -1,18 +1,6 @@
 {
-  "plugins": [
-    "babel",
-    "markdown",
-    "sonarjs",
-    "prettier",
-    "@typescript-eslint",
-    "typescript-sort-keys"
-  ],
-  "extends": [
-    "eslint:recommended",
-    "plugin:sonarjs/recommended",
-    "plugin:@typescript-eslint/recommended",
-    "prettier"
-  ],
+  "plugins": ["babel", "markdown", "sonarjs", "prettier", "@typescript-eslint", "typescript-sort-keys"],
+  "extends": ["eslint:recommended", "plugin:sonarjs/recommended", "plugin:@typescript-eslint/recommended", "prettier"],
   "rules": {
     "@typescript-eslint/ban-ts-comment": 0,
     "@typescript-eslint/explicit-module-boundary-types": 0,
@@ -34,7 +22,6 @@
     "babel/no-invalid-this": 2,
     "array-callback-return": 2,
     "valid-typeof": 2,
-    "arrow-body-style": 2,
     "react/prop-types": 0,
     "no-var": 2,
     "linebreak-style": [2, "unix"],
@@ -47,11 +34,7 @@
       "asc",
       { "caseSensitive": false, "natural": true, "requiredFirst": true }
     ],
-    "typescript-sort-keys/string-enum": [
-      "error",
-      "asc",
-      { "caseSensitive": false, "natural": true }
-    ]
+    "typescript-sort-keys/string-enum": ["error", "asc", { "caseSensitive": false, "natural": true }]
   },
   "env": {
     "es6": true,

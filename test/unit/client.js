@@ -1,9 +1,13 @@
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
+import sinon from 'sinon';
 import { generateMsg } from './test-utils/generateMessage';
 import { getClientWithUser } from './test-utils/getClient';
 
+import * as utils from '../../src/utils';
 import { StreamChat } from '../../src/client';
+import { ConnectionState } from '../../src/connection_fallback';
+import { StableWSConnection } from '../../src/connection';
 
 const expect = chai.expect;
 chai.use(chaiAsPromised);
@@ -44,9 +48,7 @@ describe('StreamChat getInstance', () => {
 		await client1.connectUser({ id: 'vishal' }, 'token');
 		const client2 = StreamChat.getInstance('key2');
 
-		await expect(client2.connectUser({ id: 'Amin' }, 'token')).to.be.rejectedWith(
-			/connectUser was called twice/,
-		);
+		await expect(client2.connectUser({ id: 'Amin' }, 'token')).to.be.rejectedWith(/connectUser was called twice/);
 	});
 
 	it('should not throw error if connectUser called twice with the same user', async () => {
@@ -65,6 +67,39 @@ describe('StreamChat getInstance', () => {
 		const client = StreamChat.getInstance('key3', { baseURL });
 
 		expect(client.baseURL).to.equal(baseURL);
+	});
+
+	it('should set axios request config correctly', async () => {
+		const client = StreamChat.getInstance('key', 'secret', {
+			axiosRequestConfig: {
+				headers: {
+					'Cache-Control': 'no-cache',
+					Pragma: 'no-cache',
+				},
+			},
+		});
+
+		let requestConfig = {};
+		client.axiosInstance.get = (url, config) => {
+			requestConfig = config;
+			return {
+				status: 200,
+			};
+		};
+
+		await client.getChannelType('messaging');
+
+		expect(requestConfig.headers).to.haveOwnProperty('Cache-Control', 'no-cache');
+		expect(requestConfig.headers).to.haveOwnProperty('Pragma', 'no-cache');
+	});
+
+	it('app settings do not mutate', async () => {
+		const client = new StreamChat('key', 'secret');
+		const cert = Buffer.from('test');
+		const options = { apn_config: { p12_cert: cert } };
+		await expect(client.updateAppSettings(options)).to.be.rejectedWith(/.*/);
+
+		expect(options.apn_config.p12_cert).to.be.eql(cert);
 	});
 });
 
@@ -128,6 +163,73 @@ describe('Client userMuteStatus', function () {
 	});
 });
 
+describe('Client active channels cache', () => {
+	const client = new StreamChat('', '');
+	const user = { id: 'user' };
+
+	client.connectUser = async () => {
+		client.user = user;
+		client.wsPromise = Promise.resolve();
+	};
+	beforeEach(() => {
+		client.activeChannels = { vish: { state: { unreadCount: 1 } }, vish2: { state: { unreadCount: 2 } } };
+	});
+
+	const countUnreadChannels = (channels) =>
+		Object.values(channels).reduce((prevSum, currSum) => prevSum + currSum.state.unreadCount, 0);
+
+	it('should mark all active channels as read on notification.mark_read event if event.unread_channels is 0', function () {
+		client.dispatchEvent({
+			type: 'notification.mark_read',
+			unread_channels: 0,
+		});
+
+		expect(countUnreadChannels(client.activeChannels)).to.be.equal(0);
+	});
+
+	it('should not mark any active channel as read on notification.mark_read event if event.unread_channels > 0', function () {
+		client.dispatchEvent({
+			type: 'notification.mark_read',
+			unread_channels: 1,
+		});
+
+		expect(countUnreadChannels(client.activeChannels)).to.be.equal(3);
+	});
+});
+
+describe('Client openConnection', () => {
+	let client;
+
+	beforeEach(() => {
+		const wsConnection = new StableWSConnection({});
+		wsConnection.isConnecting = false;
+		wsConnection.connect = function () {
+			this.isConnecting = true;
+			return new Promise((resolve) => {
+				setTimeout(() => {
+					resolve({
+						connection_id: utils.generateUUIDv4(),
+					});
+				}, 1000);
+			});
+		};
+
+		client = new StreamChat('', { allowServerSideConnect: true, wsConnection });
+	});
+
+	it('should return same promise in case of multiple calls', async () => {
+		client.userID = 'vishal';
+		client._setUser({
+			id: 'vishal',
+		});
+
+		const promise1 = client.openConnection();
+		const promise2 = client.openConnection();
+
+		expect(await promise2).to.equal(await promise1);
+	});
+});
+
 describe('Client connectUser', () => {
 	let client;
 	beforeEach(() => {
@@ -152,9 +254,7 @@ describe('Client connectUser', () => {
 
 	it('should throw error if connectUser called twice on the client with different user', async () => {
 		await client.connectUser({ id: 'vishal' }, 'token');
-		await expect(client.connectUser({ id: 'Amin' }, 'token')).to.be.rejectedWith(
-			/connectUser was called twice/,
-		);
+		await expect(client.connectUser({ id: 'Amin' }, 'token')).to.be.rejectedWith(/connectUser was called twice/);
 	});
 
 	it('should work for multiple call for the same user', async () => {
@@ -172,6 +272,14 @@ describe('Client connectUser', () => {
 
 		const connection = await client.connectUser({ id: 'amin' }, 'token');
 		expect(connection).to.equal('openConnection');
+	});
+
+	it('_getConnectionID, _hasConnectionID', () => {
+		expect(client._hasConnectionID()).to.be.false;
+		expect(client._getConnectionID()).to.equal(undefined);
+		client.wsConnection = { connectionID: 'ID' };
+		expect(client._getConnectionID()).to.equal('ID');
+		expect(client._hasConnectionID()).to.be.true;
 	});
 });
 
@@ -275,9 +383,7 @@ describe('Client search', async () => {
 
 	it('search with sorting by defined field', async () => {
 		client.get = (url, config) => {
-			expect(config.payload.sort).to.be.eql([
-				{ field: 'updated_at', direction: -1 },
-			]);
+			expect(config.payload.sort).to.be.eql([{ field: 'updated_at', direction: -1 }]);
 		};
 		await client.search({ cid: 'messaging:my-cid' }, 'query', {
 			sort: [{ updated_at: -1 }],
@@ -285,21 +391,19 @@ describe('Client search', async () => {
 	});
 	it('search with sorting by custom field', async () => {
 		client.get = (url, config) => {
-			expect(config.payload.sort).to.be.eql([
-				{ field: 'custom_field', direction: -1 },
-			]);
+			expect(config.payload.sort).to.be.eql([{ field: 'custom_field', direction: -1 }]);
 		};
 		await client.search({ cid: 'messaging:my-cid' }, 'query', {
 			sort: [{ custom_field: -1 }],
 		});
 	});
-	it('sorting and offset fails', async () => {
+	it('sorting and offset works', async () => {
 		await expect(
 			client.search({ cid: 'messaging:my-cid' }, 'query', {
 				offset: 1,
 				sort: [{ custom_field: -1 }],
 			}),
-		).to.be.rejectedWith(Error);
+		).to.be.fulfilled;
 	});
 	it('next and offset fails', async () => {
 		await expect(
@@ -323,10 +427,109 @@ describe('Client setLocalDevice', async () => {
 	});
 
 	it('should throw error when updating device with ws open', async () => {
-		client.wsConnection = true;
+		client.wsConnection = new StableWSConnection({});
+		client.wsConnection.isHealthy = true;
+		client.wsConnection.connectionID = 'ID';
 
-		expect(() =>
-			client.setLocalDevice({ id: 'id3', push_provider: 'firebase' }),
-		).to.throw();
+		expect(() => client.setLocalDevice({ id: 'id3', push_provider: 'firebase' })).to.throw();
+	});
+});
+
+describe('Client WSFallback', () => {
+	let client;
+	const userToken =
+		'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiYW1pbiJ9.1R88K_f1CC2yrR6j1_OzMEbasfS_dxRSNbundEDBlJI';
+	beforeEach(() => {
+		sinon.restore();
+		client = new StreamChat('', { allowServerSideConnect: true, enableWSFallback: true });
+		client.defaultWSTimeout = 500;
+		client.defaultWSTimeoutWithFallback = 500;
+	});
+
+	it('_getConnectionID, _hasConnectionID', () => {
+		expect(client._hasConnectionID()).to.be.false;
+		expect(client._getConnectionID()).to.equal(undefined);
+		client.wsFallback = { connectionID: 'ID' };
+		expect(client._getConnectionID()).to.equal('ID');
+		expect(client._hasConnectionID()).to.be.true;
+	});
+
+	it('should try wsFallback if WebSocket fails', async () => {
+		const eventDate = new Date(Date.UTC(2009, 1, 3, 23, 3, 3));
+		const stub = sinon
+			.stub()
+			.onCall(0)
+			.resolves({ event: { connection_id: 'new_id', received_at: eventDate } });
+
+		client.doAxiosRequest = stub;
+		client.wsBaseURL = 'ws://getstream.io';
+		const health = await client.connectUser({ id: 'amin' }, userToken);
+		expect(health).to.be.eql({ connection_id: 'new_id', received_at: eventDate });
+		expect(client.wsFallback.state).to.be.eql(ConnectionState.Connected);
+		expect(client.wsFallback.connectionID).to.be.eql('new_id');
+		expect(client.wsFallback.consecutiveFailures).to.be.eql(0);
+
+		expect(client.wsConnection.isHealthy).to.be.false;
+		expect(client.wsConnection.isDisconnected).to.be.true;
+		expect(client.wsConnection.connectionID).to.be.undefined;
+		expect(client.wsConnection.totalFailures).to.be.greaterThan(1);
+		await client.disconnectUser();
+		expect(client.wsFallback.state).to.be.eql(ConnectionState.Disconnected);
+		stub.reset();
+	});
+
+	it('should fire transport.changed and health.check event', async () => {
+		const eventDate = new Date(Date.UTC(2009, 1, 3, 23, 3, 3));
+		sinon.spy(client, 'dispatchEvent');
+		client.doAxiosRequest = () => ({
+			event: { type: 'health.check', connection_id: 'new_id', received_at: eventDate },
+		});
+		client.wsBaseURL = 'ws://getstream.io';
+		const health = await client.connectUser({ id: 'amin' }, userToken);
+		await client.disconnectUser();
+		expect(health).to.be.eql({ type: 'health.check', connection_id: 'new_id', received_at: eventDate });
+		expect(client.dispatchEvent.calledWithMatch({ type: 'transport.changed', mode: 'longpoll' })).to.be.true;
+		expect(
+			client.dispatchEvent.calledWithMatch({
+				type: 'health.check',
+				connection_id: 'new_id',
+				received_at: eventDate,
+			}),
+		).to.be.true;
+	});
+
+	it('should ignore fallback if flag is false', async () => {
+		client.wsBaseURL = 'ws://getstream.io';
+		client.options.enableWSFallback = false;
+
+		await expect(client.connectUser({ id: 'amin' }, userToken)).to.be.rejectedWith(
+			/"initial WS connection could not be established","isWSFailure":true/,
+		);
+
+		expect(client.wsFallback).to.be.undefined;
+	});
+
+	it('should ignore fallback if browser is offline', async () => {
+		client.wsBaseURL = 'ws://getstream.io';
+		client.options.enableWSFallback = true;
+		sinon.stub(utils, 'isOnline').returns(false);
+
+		await expect(client.connectUser({ id: 'amin' }, userToken)).to.be.rejectedWith(
+			/"initial WS connection could not be established","isWSFailure":true/,
+		);
+
+		expect(client.wsFallback).to.be.undefined;
+	});
+
+	it('should reuse the fallback if already created', async () => {
+		client.options.enableWSFallback = true;
+		const fallback = { isHealthy: () => false, connect: sinon.stub().returns({ connection_id: 'id' }) };
+		client.wsFallback = fallback;
+		sinon.stub(utils, 'isOnline').returns(false);
+
+		const health = await client.connectUser({ id: 'amin' }, userToken);
+
+		expect(health).to.be.eql({ connection_id: 'id' });
+		expect(client.wsFallback).to.be.equal(fallback);
 	});
 });
