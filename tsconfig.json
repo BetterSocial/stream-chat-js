@@ -11,7 +11,7 @@
     "preserveConstEnums": true,
     "strict": true,
     "strictNullChecks": true,
-    "declaration": true,
+    "declaration": false,
     "declarationMap": true,
     "declarationDir": "./dist/types",
     "module": "commonjs",
