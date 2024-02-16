@@ -12,7 +12,7 @@
     "strict": true,
     "strictNullChecks": true,
     "declaration": false,
-    "declarationMap": true,
+    "declarationMap": false,
     "declarationDir": "./dist/types",
     "module": "commonjs",
     "target": "ES5"
